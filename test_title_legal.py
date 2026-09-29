@@ -188,6 +188,30 @@ class LegalTests(unittest.TestCase):
             self.assertEqual(parsed['legal_number'], '11892')
             self.assertEqual(parsed['year'], '2008')
 
+    def test_superscript_zero_is_an_ordinal_marker_not_law_zero(self):
+        for marker in ('n\u2070', 'n\u00ba', 'n\u00b0', 'n.\u00ba'):
+            parsed = parse_raw_citation_text(f'Lei Federal {marker} 9882/1999')
+            self.assertEqual((parsed['legal_number'], parsed['legal_year']), ('9882', '1999'))
+
+    def test_1999_planalto_page_skips_navigation_before_ementa(self):
+        from unittest.mock import Mock
+        html = ('<html><body><p>Presidência da República</p>'
+                '<p>LEI N <sup>o</sup> 9.882, DE 3 DE DEZEMBRO DE 1999.</p>'
+                '<p>Mensagem de Veto</p><p>(Vide ADIN 2.231, de 2000)</p>'
+                '<p>Dispõe sobre o processo e julgamento da argüição de descumprimento de preceito fundamental, '
+                'nos termos do § 1<sup>o</sup> do art. 102 da Constituição Federal.</p>'
+                '<p>O PRESIDENTE DA REPÚBLICA Faço saber que o Congresso Nacional decreta.</p>'
+                '<p>Brasília, 3 de dezembro de 1999; 178º da Independência.</p></body></html>')
+        with patch('correction.correction_today', return_value=date(2026, 9, 29)), \
+                patch('legal_references._get', return_value=Mock(content=html.encode('windows-1252'))) as request:
+            result = process_reference_line('Lei Federal n\u2070 9882/1999')
+        self.assertEqual(request.call_args.args[0], 'https://www.planalto.gov.br/ccivil_03/leis/l9882.htm')
+        self.assertTrue(result['approved'], result)
+        self.assertIn('**Lei nº 9.882, de 3 de dezembro de 1999**.', result['abnt'])
+        self.assertIn('§ 1º do art. 102', result['abnt'])
+        self.assertNotIn('Mensagem de Veto', result['abnt'])
+        self.assertIn('Brasília, DF: Presidência da República, 1999.', result['abnt'])
+
     def test_short_bill_is_not_a_book(self):
         self.assertEqual(parse_raw_citation_text('PL 2630/2020')['item_type'], 'bill')
 

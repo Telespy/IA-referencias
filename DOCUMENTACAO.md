@@ -165,7 +165,7 @@ Anexos PDF/DOCX/TXT nao sao lidos automaticamente pelo comando.
 | Artigo com titulo/autoria/ano | Busca Crossref, compara candidatos e complementa quando possivel. |
 | Titulo isolado | Busca Crossref e Open Library; para artigo selecionado, reconfirma o DOI na Crossref antes de usar os metadados. Candidatos ambiguos sao exibidos. |
 | ISBN | Confere digito verificador e consulta Google Books/Open Library. |
-| Lei federal ordinaria | Confere numero, ano, data e ementa na pagina oficial do Planalto (atos desde 2003). Se indisponivel, tenta o cadastro do Senado. |
+| Lei federal ordinaria | Confere numero, ano, data e ementa na pagina oficial do Planalto (leis anteriores e posteriores a 2003). Se indisponivel, tenta o cadastro do Senado. |
 | Lei complementar federal | Consulta o cadastro de normas do Senado por tipo, numero e ano. |
 | PL com casa identificada | Consulta processos do Senado ou proposicoes da Camara. |
 | Outros tipos reconhecidos | Formata os elementos informados e indica os nao verificados. |
@@ -186,7 +186,9 @@ referenciados como projetos, com a situacao informada separadamente e datada.
 
 Quando a pagina do Planalto e conferida, a lei usa titulo em negrito, ementa,
 `Brasilia, DF: Presidencia da Republica, ano`, URL oficial e data de acesso.
-Exemplo: `Lei federal 12503/2011`. O local decorre da data e local indicados
+Exemplos: `Lei federal 12503/2011` e `Lei Federal n⁰ 9882/1999`.
+Os marcadores `n⁰`, `nº`, `n°` e `n.º` sao reconhecidos como numero, sem
+confundir o zero sobrescrito com o numero da lei. O local decorre da data e local indicados
 no proprio ato; a consulta nao comprova vigencia. Se o Planalto nao responder,
 o sistema nao atribui essa URL sem conferencia. Para leis, o cadastro do Senado pode fornecer apenas a pagina inicial do
 Diario Oficial da Uniao. Secao e paginacao completa ficam pendentes quando

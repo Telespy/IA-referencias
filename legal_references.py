@@ -27,7 +27,8 @@ def _fold(value):
 
 def parse_legal_request(text):
     text = text.strip()
-    folded = _fold(text)
+    # Unicode NFKD turns superscript zero in "n⁰" into the digit 0.
+    folded = _fold(text.replace('\u2070', '\u00ba'))
     match = re.search(r'\b(projeto de lei complementar|projeto de lei|plp|pls|plc|pl|lei complementar|lei)\b', folded)
     if not match or match.start() > 100:
         return {}
@@ -101,8 +102,10 @@ def _place(meta, authority_url):
 
 def _planalto_url(query):
     year = int(query['legal_year'])
-    if query['legal_type'] != 'LEI' or year < 2003:
+    if query['legal_type'] != 'LEI':
         return ''
+    if year < 2003:
+        return f'https://www.planalto.gov.br/ccivil_03/leis/l{int(query["legal_number"])}.htm'
     first = 2003 + 4 * ((year - 2003) // 4)
     return (f'https://www.planalto.gov.br/ccivil_03/_ato{first}-{first + 3}/'
             f'{year}/lei/l{int(query["legal_number"])}.htm')
@@ -118,8 +121,14 @@ def _planalto_law(query):
     })
     if response is None:
         return {}
-    soup = BeautifulSoup(response.content, 'html.parser')
+    declared_utf8 = re.search(br'charset\s*=\s*["\']?utf-?8', response.content[:4096], re.I)
+    soup = BeautifulSoup(response.content, 'html.parser',
+                         from_encoding='utf-8' if declared_utf8 else 'windows-1252')
+    for superscript in soup.find_all('sup'):
+        if superscript.get_text(strip=True).lower() in {'o', 'º', '°'}:
+            superscript.replace_with('º')
     text = ' '.join(soup.get_text(' ', strip=True).split())
+    text = re.sub(r'(?<=\d)\s+º(?=\W|$)', 'º', text)
     if not re.search(r'Presid[eê]ncia da Rep[uú]blica', text, re.I):
         return {}
     number = f'{int(query["legal_number"]):,}'.replace(',', '.')
@@ -139,6 +148,7 @@ def _planalto_law(query):
     if not end or end.start() > 1200:
         return {}
     ementa = text[heading.end():heading.end() + end.start()].strip(' .')
+    ementa = re.sub(r'^(?:Mensagem de Veto\s*)?(?:\(Vide [^)]+\)\s*)?', '', ementa, flags=re.I).strip(' .')
     if not ementa or len(ementa) > 750:
         return {}
     dateline = re.search(r'\bBras[ií]lia\s*,\s*' + re.escape(heading[1]) + r'\s+de\s+'
