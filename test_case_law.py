@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from case_law import parse_case_request, fetch_stf_case
+from case_law import parse_case_request, fetch_stf_case, _first_pdf_text
 from correction import correct_reference, reference_report
 from formatters import format_case_citation
 
@@ -13,6 +13,49 @@ def correct(raw, fetched=None, online=True):
 
 
 class CaseLawTests(unittest.TestCase):
+    def test_nested_appeal_pdf(self):
+        class Page:
+            def __init__(self, text):
+                self.text = text
+
+            def extract_text(self):
+                return self.text
+
+        first = ('Ementa e Acórdão\n03/11/2022 PRIMEIRA TURMA\n'
+                 'AG.REG. NOS EMB.DECL. NO AG.REG. NO RECURSO EXTRAORDINÁRIO 1.334.584 RIO DE JANEIRO\n'
+                 'RELATOR : MIN. DIAS TOFFOLI\nEMENTA\n'
+                 'Agravo regimental em embargos de declaração em agravo regimental. '
+                 'A transformação de cargos sem concurso público viola a Constituição.\n'
+                 'Documento assinado digitalmente\n')
+        second = ('Ementa e Acórdão\nRE 1334584 A GR-ED-AGR / RJ\n'
+                  'O recurso não foi provido.\nACÓRDÃO\nVistos, relatados e discutidos.')
+        with patch('case_law.PdfReader') as reader:
+            reader.return_value.is_encrypted = False
+            reader.return_value.pages = [Page(first), Page(second)]
+            found = _first_pdf_text(b'%PDF-example', 'RE', '1334584')
+        self.assertEqual(found['case_suffix'], 'AgR-ED-AgR')
+        self.assertEqual(found['case_state'], 'RJ')
+        self.assertTrue(found['ementa'].endswith('O recurso não foi provido.'))
+        self.assertNotIn('ACÓRDÃO', found['ementa'])
+
+    def test_main_judgment_takes_precedence_over_appeal(self):
+        records = [{'publication_date': '10/01/2023', 'disclosure_date': '09/01/2023',
+                    'url': 'https://portal.stf.jus.br/processos/downloadPeca.asp?id=1&ext=.pdf'},
+                   {'publication_date': '22/08/2019', 'disclosure_date': '21/08/2019',
+                    'url': 'https://portal.stf.jus.br/processos/downloadPeca.asp?id=2&ext=.pdf'}]
+        appeal = {'case_state': 'MG', 'case_suffix': 'AgR-ED-AgR', 'judgment_date': '03/11/2022',
+                  'relator': 'Dias Toffoli', 'court_body': 'Primeira Turma', 'ementa': 'Agravo confirmado.'}
+        main = {'case_state': 'MG', 'judgment_date': '28/02/2019',
+                'relator': 'Luiz Fux', 'court_body': 'Tribunal Pleno', 'ementa': 'Recurso confirmado.'}
+        response = [(b'<html>RE 663696</html>', 'https://portal.stf.jus.br/processos/detalhe.asp?incidente=4168352'),
+                    (b'<div></div>', 'https://portal.stf.jus.br/processos/abaAndamentos.asp'),
+                    (b'%PDF-first', records[0]['url']), (b'%PDF-second', records[1]['url'])]
+        with patch('case_law._stf_get', side_effect=response), patch('case_law._publications', return_value=records), \
+             patch('case_law._first_pdf_text', side_effect=[appeal, main]):
+            found = fetch_stf_case({'case_class': 'RE', 'case_number': '663696', 'case_state': 'MG'})
+        self.assertNotIn('case_suffix', found)
+        self.assertEqual(found['publication_date'], '22/08/2019')
+
     def test_parse_adi_and_supplied_page(self):
         parsed = parse_case_request('BRASIL. Supremo Tribunal Federal. Ação Direta de Inconstitucionalidade 4.449/AL, p. 1')
         self.assertEqual(parsed['case_number'], '4449')

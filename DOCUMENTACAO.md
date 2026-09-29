@@ -85,6 +85,14 @@ automatica de jurisprudencia cobre apenas ADIs e REs do STF, nao outras classes
 ou tribunais. A saida APA para julgados reaproveita a referencia ABNT e
 nao deve ser tratada como formatacao APA validada.
 
+Quando um RE nao tem acordao principal publicado, mas possui exatamente um
+acordao incidental compativel, o sistema pode referenciar esse incidente com
+o nome processual completo e um aviso explicito. Exemplo: `STF RE 1334584/RJ`
+retorna o agravo regimental nos embargos de declaracao no agravo regimental,
+publicado em 10 jan. 2023, e nao atribui esse julgamento ao merito do RE.
+Se houver varios incidentes publicados sem selecao inequivoca, a referencia
+permanece para revisao.
+
 ## 3. Requisitos e instalacao
 
 Requisitos: Docker Desktop com Compose, Python 3 para os scripts de

@@ -290,7 +290,10 @@ def format_case_citation(meta):
     if meta.get('item_type') != 'caseLaw' or not meta.get('case_number'):
         return ''
     number = f'{int(meta["case_number"]):,}'.replace(',', '.')
-    fields = ['STF', f'{meta.get("case_class", "ADI")} {number}']
+    label = f'{meta.get("case_class", "ADI")} {number}'
+    if meta.get('case_suffix'):
+        label += f' {meta["case_suffix"]}'
+    fields = ['STF', label]
     if meta.get('relator'):
         fields.append(f'Rel. Min. {meta["relator"]}')
     if meta.get('court_body'):

@@ -123,6 +123,38 @@ def _first_pdf_text(pdf_bytes, case_class, number):
     except Exception as exc:
         raise LookupFailure('PDF oficial do ac_or_dao nao pode ser lido.') from exc
     first = pages[0]
+    appeal_heading = re.search(
+        rf'AG\.REG\.\s+NOS\s+EMB\.DECL\.\s+NO\s+AG\.REG\.\s+NO\s+RECURSO EXTRAORDIN[AÁ]RIO\s+{int(number):,}'.replace(',', r'\.'),
+        first[:450], re.I)
+    if appeal_heading:
+        if case_class != 'RE':
+            return {}
+        state = re.search(rf'\bRE\s+{re.escape(number)}\s+A\s*GR-ED-AGR\s*/\s*([A-Z]{{2}})\b',
+                          ' '.join(pages[1:3]), re.I)
+        date = re.search(r'\b(\d{2}/\d{2}/\d{4})\s+(PLEN[AÁ]RIO|PRIMEIRA TURMA|SEGUNDA TURMA)\b', first, re.I)
+        relator = re.search(r'\bRELATOR\s*:\s*MIN\.?\s*([^\n]+)', first, re.I)
+        if not state or not date or not relator:
+            return {}
+        pieces = []
+        for page in pages[:3]:
+            body = re.split(r'\n(?:\d+\s*\n)?Documento assinado digitalmente', page, maxsplit=1)[0]
+            body = re.sub(r'^Ementa e Ac[oó]rd[aã]o\s*', '', body, flags=re.I)
+            body = re.sub(rf'^RE\s+{re.escape(number)}\s+A\s*GR-ED-AGR\s*/\s*[A-Z]{{2}}\s*', '', body, flags=re.I)
+            pieces.append(body)
+        joined = '\n'.join(pieces)
+        start = re.search(r'(?m)^EMENTA\s*:?\s*\n', joined, re.I)
+        end = re.search(r'(?m)^AC[OÓ]RD[AÃ]O\s*$', joined, re.I)
+        if not start or not end or end.start() <= start.end():
+            return {}
+        ementa = ' '.join(joined[start.end():end.start()].split())
+        if not 80 <= len(ementa) <= 8000 or 'Documento assinado' in ementa:
+            return {}
+        return {'case_state': state[1].upper(), 'judgment_date': date[1],
+                'court_body': {'PLENÁRIO': 'Tribunal Pleno', 'PRIMEIRA TURMA': 'Primeira Turma',
+                               'SEGUNDA TURMA': 'Segunda Turma'}[date[2].upper()],
+                'relator': ' '.join(relator[1].split()).title(), 'ementa': ementa.rstrip('.') + '.',
+                'case_suffix': 'AgR-ED-AgR',
+                'decision_title': 'Agravo regimental nos embargos de declaração no agravo regimental no Recurso Extraordinário'}
     if re.search(r'EMB(?:ARGOS)?\.?\s*(?:DECL|DECLARAT)', first[:450], re.I):
         return {}
     number_pattern = f'{int(number):,}'.replace(',', r'\.')
@@ -175,12 +207,14 @@ def fetch_stf_case(query):
     if not re.fullmatch(r'\d{1,12}', incident) or not _docket(html, case_class, number):
         return {}
     records, _ = _stf_get(f'https://{STF_HOST}/processos/abaAndamentos.asp?incidente={incident}&imprimir=')
-    matches = []
+    matches, appeals = [], []
     for publication in _publications(records)[:8]:
         pdf, _ = _stf_get(publication['url'], pdf=True)
         document = _first_pdf_text(pdf, case_class, number)
         if document and (not query.get('case_state') or query['case_state'] == document['case_state']):
-            matches.append((publication, document))
+            (appeals if document.get('case_suffix') else matches).append((publication, document))
+    if not matches and len(appeals) == 1:
+        matches = appeals
     if len(matches) != 1:
         return {}
     publication, document = matches[0]
@@ -189,7 +223,7 @@ def fetch_stf_case(query):
     if published < judgment:
         return {}
     formatted = f'{int(number):,}'.replace(',', '.')
-    title_class = {'ADI': 'Ação Direta de Inconstitucionalidade', 'RE': 'Recurso Extraordinário'}[case_class]
+    title_class = document.get('decision_title') or {'ADI': 'Ação Direta de Inconstitucionalidade', 'RE': 'Recurso Extraordinário'}[case_class]
     meta = _stamp({'item_type': 'caseLaw', 'case_class': case_class, 'case_number': number,
                    **document, 'title': f'{title_class} {formatted}/{document["case_state"]}',
                    'jurisdiction': 'BRASIL', 'court': 'Supremo Tribunal Federal',
@@ -203,4 +237,8 @@ def fetch_stf_case(query):
         meta['_issues'] = [{'code': 'CASE_PAGE_UNVERIFIED', 'message':
                             'Pagina informada pelo usuario; a paginacao do PDF pode diferir da edicao do DJe.',
                             'severity': 'warning', 'field': 'case_page'}]
+    if document.get('case_suffix'):
+        meta.setdefault('_issues', []).append({'code': 'CASE_INCIDENT',
+            'message': 'O acordao publicado e de agravo regimental nos embargos de declaracao em agravo regimental; nao e o julgamento principal do RE.',
+            'severity': 'info', 'field': 'case_suffix'})
     return meta
