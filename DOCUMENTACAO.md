@@ -66,20 +66,22 @@ tabela acima. A configuracao atual de publicacao e a do Docker Compose.
 ### Julgados do STF
 
 Para um acordao de acao direta de inconstitucionalidade, envie por exemplo
-`STF ADI 4449/AL` ou `BRASIL. Supremo Tribunal Federal. Acao Direta de
-Inconstitucionalidade 4.449/AL`. A resposta ABNT traz dois campos separados:
+`STF ADI 4449/AL`, `STF RE 663696/MG` ou `BRASIL. Supremo Tribunal Federal.
+Acao Direta de Inconstitucionalidade 4.449/AL`. A resposta ABNT traz dois campos separados:
 `citation` (citacao curta, na ordem STF, classe/numero, relator, orgao,
 julgamento, publicacao DJe e pagina quando informada) e `abnt` (referencia
 com ementa, relator, local, editora institucional, URL oficial e acesso).
 O relatorio do Telegram tambem mostra `Citacao:` e `Referencia:`.
 
 O sistema consulta o processo e o PDF do inteiro teor no portal oficial do
-STF; distingue o julgamento principal de embargos posteriores. A pagina
+STF; distingue o julgamento principal de repercussao geral e embargos
+posteriores. O Hermes divide respostas longas em varias mensagens no
+Telegram, preservando a ementa integral. A pagina
 do DJe nao e inventada: se a pessoa a fornecer, ela aparece com aviso de
 que a paginacao nao foi verificada. Se o portal nao responder ou o PDF nao
 confirmar os dados, a referencia fica marcada para revisao e os campos
 ausentes nao sao completados por suposicao. Nesta versao, a consulta
-automatica de jurisprudencia cobre apenas ADIs do STF, nao outras classes
+automatica de jurisprudencia cobre apenas ADIs e REs do STF, nao outras classes
 ou tribunais. A saida APA para julgados reaproveita a referencia ABNT e
 nao deve ser tratada como formatacao APA validada.
 

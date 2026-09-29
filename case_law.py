@@ -26,15 +26,16 @@ MAX_PDF_BYTES = 12 * 1024 * 1024
 
 def parse_case_request(raw):
     text = re.sub(r'^\s*(?:BRASIL\.\s*)?(?:Supremo Tribunal Federal(?:\s*\([^)]*\))?\.?\s*)?', '', raw, flags=re.I)
-    match = re.search(r'\b(?:ADI|A[cç][aã]o Direta de Inconstitucionalidade)\s*(?:n[.\u00ba\u00b0\u2070]?\s*)?(\d[\d.]*)\s*(?:/\s*([A-Z]{2}))?', text, re.I)
-    if not match or (not re.search(r'\bSTF\b|Supremo Tribunal Federal|\bADI\b|A[cç][aã]o Direta de Inconstitucionalidade', raw, re.I)):
+    match = re.search(r'\b(ADI|A[cç][aã]o Direta de Inconstitucionalidade|RE|Recurso Extraordin[aá]rio)\s*(?:n[.\u00ba\u00b0\u2070]?\s*)?(\d[\d.]*)\s*(?:/\s*([A-Z]{2}))?', text, re.I)
+    if not match or (not re.search(r'\bSTF\b|Supremo Tribunal Federal|\bADI\b|A[cç][aã]o Direta de Inconstitucionalidade|\bRE\b|Recurso Extraordin[aá]rio', raw, re.I)):
         return {}
-    number = str(int(match[1].replace('.', '')))
+    number = str(int(match[2].replace('.', '')))
     if number == '0' or len(number) > 7:
         return {}
-    state = (match[2] or '').upper()
+    state = (match[3] or '').upper()
     page = re.search(r'\bp\.\s*(\d+)\b', raw, re.I)
-    return {'item_type': 'caseLaw', 'case_class': 'ADI', 'case_number': number,
+    case_class = 'ADI' if re.fullmatch(r'ADI|A[cç][aã]o Direta de Inconstitucionalidade', match[1], re.I) else 'RE'
+    return {'item_type': 'caseLaw', 'case_class': case_class, 'case_number': number,
             'case_state': state, 'case_page': page[1] if page else ''}
 
 
@@ -82,10 +83,10 @@ def _stf_get(url, *, pdf=False):
         raise LookupFailure('Portal STF indisponivel ou conexao segura falhou.') from exc
 
 
-def _docket(html, number):
+def _docket(html, case_class, number):
     soup = BeautifulSoup(html, 'html.parser')
     text = soup.get_text(' ', strip=True)
-    if not re.search(rf'\bADI\s*{re.escape(number)}\b', text, re.I):
+    if not re.search(rf'\b{case_class}\s*{re.escape(number)}\b', text, re.I):
         return {}
     relator = re.search(r'Relator\(a\):\s*(?:MIN\.?\s*)?([^<]+?)(?=Redator do ac[oó]rd[aã]o:|Relator\(a\) do [uú]ltimo incidente:|$)', text, re.I)
     return {'relator': ' '.join(relator[1].split()).title() if relator else ''}
@@ -113,7 +114,7 @@ def _publications(html):
     return results
 
 
-def _first_pdf_text(pdf_bytes, number):
+def _first_pdf_text(pdf_bytes, case_class, number):
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes), strict=False)
         if reader.is_encrypted or len(reader.pages) < 2:
@@ -124,9 +125,12 @@ def _first_pdf_text(pdf_bytes, number):
     first = pages[0]
     if re.search(r'EMB(?:ARGOS)?\.?\s*(?:DECL|DECLARAT)', first[:450], re.I):
         return {}
-    if not re.search(rf'A[CÇ][AÃ]O DIRETA DE INCONSTITUCIONALIDADE\s+{int(number):,}'.replace(',', r'\.'), first, re.I):
+    number_pattern = f'{int(number):,}'.replace(',', r'\.')
+    heading = (rf'A[CÇ][AÃ]O DIRETA DE INCONSTITUCIONALIDADE\s+{number_pattern}' if case_class == 'ADI'
+               else rf'(?<!NO )RECURSO EXTRAORDIN[AÁ]RIO\s+{number_pattern}')
+    if not re.search(heading, first[:450], re.I):
         return {}
-    state = re.search(rf'\bADI\s+{re.escape(number)}\s*/\s*([A-Z]{{2}})\b', ' '.join(pages[1:3]), re.I)
+    state = re.search(rf'\b{case_class}\s+{re.escape(number)}\s*/\s*([A-Z]{{2}})\b', ' '.join(pages[1:3]), re.I)
     if not state:
         return {}
     date = re.search(r'\b(\d{2}/\d{2}/\d{4})\s+(PLEN[AÁ]RIO|PRIMEIRA TURMA|SEGUNDA TURMA)\b', first, re.I)
@@ -135,18 +139,23 @@ def _first_pdf_text(pdf_bytes, number):
         return {}
     pieces = []
     for page in pages:
-        body = re.split(r'\n\d+\s*\nSupremo Tribunal Federal\s*\nDocumento assinado', page, maxsplit=1)[0]
+        body = re.split(r'\n(?:\d+\s*\n)?Supremo Tribunal Federal\s*\nDocumento assinado', page, maxsplit=1)[0]
         body = re.sub(r'^Ementa e Ac[oó]rd[aã]o\s*', '', body, flags=re.I)
-        body = re.sub(rf'^ADI\s+{re.escape(number)}\s*/\s*[A-Z]{{2}}\s*', '', body, flags=re.I)
+        body = re.sub(rf'^{case_class}\s+{re.escape(number)}\s*/\s*[A-Z]{{2}}\s*', '', body, flags=re.I)
         pieces.append(body)
     joined = '\n'.join(pieces)
     end = re.search(r'A\s+C\s+[OÓ]\s+R\s+D\s+[AÃ]\s+O', joined, re.I)
     if not end:
         return {}
-    start = re.search(r'(?m)^([A-ZÀ-Ý][A-ZÀ-Ý\s\u2013-]{8,}\.\s+[A-ZÀ-Ý][a-zà-ÿ])', joined[:end.start()])
+    if case_class == 'RE':
+        start = re.search(r'\bEMENTA\s*:\s*', joined[:end.start()], re.I)
+        ementa_start = start.end() if start else None
+    else:
+        start = re.search(r'(?m)^([A-ZÀ-Ý][A-ZÀ-Ý\s\u2013-]{8,}\.\s+[A-ZÀ-Ý][a-zà-ÿ])', joined[:end.start()])
+        ementa_start = start.start() if start else None
     if not start:
         return {}
-    ementa = ' '.join(joined[start.start():end.start()].split())
+    ementa = ' '.join(joined[ementa_start:end.start()].split())
     if not 80 <= len(ementa) <= 8000 or 'Documento assinado' in ementa:
         return {}
     return {'case_state': state[1].upper(), 'judgment_date': date[1],
@@ -157,16 +166,19 @@ def _first_pdf_text(pdf_bytes, number):
 
 def fetch_stf_case(query):
     number = query['case_number']
-    listing = f'https://{STF_HOST}/processos/listarProcessos.asp?classe=ADI&numeroProcesso={number}'
+    case_class = query['case_class']
+    if case_class not in {'ADI', 'RE'} or not re.fullmatch(r'\d{1,7}', number):
+        return {}
+    listing = f'https://{STF_HOST}/processos/listarProcessos.asp?classe={case_class}&numeroProcesso={number}'
     html, final_url = _stf_get(listing)
     incident = parse_qs(urlsplit(final_url).query).get('incidente', [''])[0]
-    if not re.fullmatch(r'\d{1,12}', incident) or not _docket(html, number):
+    if not re.fullmatch(r'\d{1,12}', incident) or not _docket(html, case_class, number):
         return {}
     records, _ = _stf_get(f'https://{STF_HOST}/processos/abaAndamentos.asp?incidente={incident}&imprimir=')
     matches = []
     for publication in _publications(records)[:8]:
         pdf, _ = _stf_get(publication['url'], pdf=True)
-        document = _first_pdf_text(pdf, number)
+        document = _first_pdf_text(pdf, case_class, number)
         if document and (not query.get('case_state') or query['case_state'] == document['case_state']):
             matches.append((publication, document))
     if len(matches) != 1:
@@ -177,8 +189,9 @@ def fetch_stf_case(query):
     if published < judgment:
         return {}
     formatted = f'{int(number):,}'.replace(',', '.')
-    meta = _stamp({'item_type': 'caseLaw', 'case_class': 'ADI', 'case_number': number,
-                   **document, 'title': f'Ação Direta de Inconstitucionalidade {formatted}/{document["case_state"]}',
+    title_class = {'ADI': 'Ação Direta de Inconstitucionalidade', 'RE': 'Recurso Extraordinário'}[case_class]
+    meta = _stamp({'item_type': 'caseLaw', 'case_class': case_class, 'case_number': number,
+                   **document, 'title': f'{title_class} {formatted}/{document["case_state"]}',
                    'jurisdiction': 'BRASIL', 'court': 'Supremo Tribunal Federal',
                    'authors': [{'family': 'BRASIL', 'given': '', 'is_corporate': True}],
                    'city': 'Brasília, DF', 'publisher': 'Supremo Tribunal Federal',

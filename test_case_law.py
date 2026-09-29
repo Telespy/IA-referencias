@@ -19,6 +19,17 @@ class CaseLawTests(unittest.TestCase):
         self.assertEqual(parsed['case_state'], 'AL')
         self.assertEqual(parsed['case_page'], '1')
 
+    def test_parse_re(self):
+        parsed = parse_case_request('STF RE 663696/MG')
+        self.assertEqual(parsed['case_class'], 'RE')
+        self.assertEqual(parsed['case_number'], '663696')
+        self.assertEqual(parsed['case_state'], 'MG')
+
+    def test_re_without_source_is_not_a_fabricated_reference(self):
+        result = correct('STF RE 663696/MG')
+        self.assertEqual(result['abnt'], 'STF RE 663696/MG')
+        self.assertEqual(result['citation'], '')
+
     def test_unverified_does_not_invent_ementa(self):
         result = correct('STF ADI 4449/AL')
         self.assertEqual(result['status'], 'needs_review')
@@ -45,7 +56,7 @@ class CaseLawTests(unittest.TestCase):
         docket = b'<div></div>'
         with patch('case_law._stf_get', side_effect=[(html, 'https://portal.stf.jus.br/processos/detalhe.asp?incidente=3934977'),
                                                     (docket, 'https://portal.stf.jus.br/processos/abaAndamentos.asp')]):
-            self.assertEqual(fetch_stf_case({'case_number': '4449', 'case_state': 'SP'}), {})
+            self.assertEqual(fetch_stf_case({'case_class': 'ADI', 'case_number': '4449', 'case_state': 'SP'}), {})
 
 
 if __name__ == '__main__':

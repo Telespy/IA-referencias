@@ -282,13 +282,13 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
         issue('MISSING_FIELDS', 'Elementos pendentes: ' + '; '.join(dict.fromkeys(missing)) + '.')
     blocking = [i for i in issues if i['severity'] != 'info' and not i.get('resolved')]
     approved = bool(fetched and not blocking and item_type in SUPPORTED_TYPES)
-    abnt = format_abnt(meta) if item_type != 'unknown' else raw
-    apa = format_apa(meta) if item_type != 'unknown' else raw
+    abnt = format_abnt(meta) if item_type != 'unknown' and (item_type != 'caseLaw' or fetched) else raw
+    apa = format_apa(meta) if item_type != 'unknown' and (item_type != 'caseLaw' or fetched) else raw
     return {
         'raw': raw, 'meta': meta, 'item_type': item_type,
         'item_type_label': get_item_type_label(item_type),
         'abnt': abnt, 'apa': apa, 'missing_fields': list(dict.fromkeys(missing)),
-        'citation': format_case_citation(meta) if item_type == 'caseLaw' else '',
+        'citation': format_case_citation(meta) if item_type == 'caseLaw' and fetched else '',
         'status': 'verified' if approved else 'needs_review', 'approved': approved,
         'identity_verified': bool(fetched), 'issues': issues,
         'warnings': [i['message'] for i in issues if i['severity'] != 'info'],
