@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain Format — Padronizador Inteligente de Referências (ABNT & APA)</title>
+  <meta name="description" content="Referências ABNT e APA com fontes, correções e pendências de revisão.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header / Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+            <path d="M6 6h10"></path>
+            <path d="M6 10h10"></path>
+            <path d="M6 14h6"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Brain Format</h1>
+          <span class="brand-tag">ABNT & APA Intelligence</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="status-indicator" id="apiStatus" title="Status da API">
+          <span class="status-dot"></span>
+          <span class="status-text">Online</span>
+        </div>
+        <button id="themeToggle" class="btn-icon" aria-label="Alternar Tema" title="Alternar Modo Escuro/Claro">
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+          </svg>
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-content">
+    <section class="hero-section">
+      <div class="hero-badge">ABNT NBR 6023 + APA 7ª Ed.</div>
+      <h2 class="hero-title">Correção de referências</h2>
+    </section>
+
+    <!-- Caixa de Entrada -->
+    <section class="input-card">
+      <div class="input-header">
+        <label for="referenceInput" class="input-label">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span>Cole suas referências (uma por linha):</span>
+        </label>
+        <span class="input-counter" id="lineCount">0 referências</span>
+      </div>
+
+      <div class="textarea-wrapper">
+        <textarea
+          id="referenceInput"
+          placeholder="Exemplo de referências para colar:
+WOODWARD, Kathryn. Identidade e diferença: uma introdução teórica e conceitual. In: SILVA, Tomaz Tadeu da (org.). Identidade e diferença: a perspectiva dos estudos culturais. Petrópolis: Vozes, 2000. p. 7-72.
+https://doi.org/10.1590/s1981-77462003000100010
+CARNEIRO, Aparecida Sueli. A construção do outro como não-ser como fundamento do ser. 2005. Tese (Doutorado) – Universidade de São Paulo, São Paulo, 2005."
+          rows="7"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <div class="input-footer">
+        <div class="footer-left">
+          <button id="btnExample" class="btn btn-secondary" title="Inserir referências de demonstração">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m18 16 4-4-4-4"></path>
+              <path d="m6 8-4 4 4 4"></path>
+              <path d="m14.5 4-5 16"></path>
+            </svg>
+            Carregar Exemplos
+          </button>
+          <button id="btnClear" class="btn btn-ghost" title="Limpar campo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            Limpar
+          </button>
+        </div>
+        <div class="footer-right">
+          <button id="btnFormat" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>Formatar Referências Agora</span>
+            <kbd class="shortcut-tag">Ctrl + Enter</kbd>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feedback de Carregamento -->
+    <div id="loadingState" class="loading-state hidden">
+      <div class="spinner"></div>
+      <div class="loading-content">
+        <div class="loading-title">Analisando e formatando...</div>
+        <div class="loading-desc">Identificando tipos bibliográficos, aplicando normas ABNT e APA.</div>
+      </div>
+    </div>
+
+    <!-- Alerta de Erro -->
+    <div id="errorBanner" class="error-banner hidden">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span id="errorMessage">Ocorreu um erro ao processar as referências.</span>
+    </div>
+
+    <!-- Área de Resultados -->
+    <section id="resultsSection" class="results-section hidden">
+      <!-- Barra de Ações do Resultado -->
+      <div class="results-toolbar">
+        <div class="toolbar-title">
+          <span class="results-count" id="resultsCount">3 referências processadas</span>
+        </div>
+        <div class="toolbar-downloads">
+          <button id="btnDownloadComp" class="btn btn-sm btn-outline">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Baixar Comparativo (.md)
+          </button>
+          <button id="btnDownloadABNT" class="btn btn-sm btn-outline">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Baixar ABNT (.md)
+          </button>
+          <button id="btnDownloadAPA" class="btn btn-sm btn-outline">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Baixar APA (.md)
+          </button>
+        </div>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="tab-comp">
+          <span class="tab-icon">🔍</span>
+          <span>Comparativo Lado a Lado</span>
+          <span class="tab-badge" id="badgeComp">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-abnt">
+          <span class="tab-icon">📗</span>
+          <span>ABNT (NBR 6023)</span>
+          <span class="tab-badge" id="badgeABNT">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tab-apa">
+          <span class="tab-icon">📘</span>
+          <span>APA (7ª Edição)</span>
+          <span class="tab-badge" id="badgeAPA">0</span>
+        </button>
+      </div>
+
+      <!-- Conteúdo da Aba 1: Comparativo Lado a Lado -->
+      <div id="tab-comp" class="tab-pane active">
+        <div id="compList" class="cards-list"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 2: ABNT -->
+      <div id="tab-abnt" class="tab-pane">
+        <div class="list-action-bar">
+          <button id="btnCopyAllABNT" class="btn btn-sm btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copiar Lista ABNT Completa
+          </button>
+        </div>
+        <div id="abntList" class="cards-list"></div>
+      </div>
+
+      <!-- Conteúdo da Aba 3: APA -->
+      <div id="tab-apa" class="tab-pane">
+        <div class="list-action-bar">
+          <button id="btnCopyAllAPA" class="btn btn-sm btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copiar Lista APA Completa
+          </button>
+        </div>
+        <div id="apaList" class="cards-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toasts de Notificação -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <footer class="footer">
+    <p>Brain Format © 2026 · ABNT e APA · Referências e pendências de revisão</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

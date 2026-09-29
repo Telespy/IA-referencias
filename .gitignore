@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+.DS_Store
+hermes-data/
+.env.*
+!.env.example
+*.local.env
+local-credentials.txt
+artifacts/

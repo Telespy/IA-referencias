@@ -1,0 +1,61 @@
+services:
+  brain-format:
+    build: .
+    container_name: brain-format-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_CONTEXT_LENGTH: "64000"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+      brain-format:
+        condition: service_healthy
+    env_file:
+      - hermes-dashboard.local.env
+      - telegram.local.env
+    environment:
+      BRAIN_FORMAT_URL: http://brain-format:8000
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+    volumes:
+      - ./hermes-data:/opt/data
+      - ./integrations/hermes/brain-format:/opt/data/plugins/brain-format:ro
+    ports:
+      - "127.0.0.1:8642:8642"
+      - "127.0.0.1:9119:9119"
+    command: ["gateway", "run"]
+
+volumes:
+  ollama-data:

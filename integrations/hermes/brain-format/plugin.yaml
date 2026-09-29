@@ -1,0 +1,5 @@
+name: brain-format
+version: 1.0.0
+description: Correcao de referencias com evidencias e avisos pela API local Brain Format.
+provides_tools:
+  - corrigir_referencias
