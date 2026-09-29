@@ -105,6 +105,13 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
             edition_unconfirmed = fetched.get('item_type') == 'book' and not fetched.get('_work_only')
             if edition_unconfirmed:
                 fetched = {}
+            if fetched.get('doi'):
+                confirmed = lookup(fetch_doi, fetched['doi'], 'Crossref (DOI do titulo)')
+                if confirmed and verify_work_identity({'title': title_input}, confirmed):
+                    fetched = confirmed
+                else:
+                    fetched = {}
+                    issue('TITLE_DOI_UNVERIFIED', 'O DOI do candidato nao confirmou este titulo; confira os candidatos e a publicacao.')
             suggestions = [public_candidate(m) for m in matches]
             for match in matches:
                 remember_source(match.get('_source'))

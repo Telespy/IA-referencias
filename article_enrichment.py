@@ -135,10 +135,18 @@ def _catalog_location(root, nlmid, issns, year, source_url):
     if last.isdigit() and int(year) > int(last):
         return {}
     imprints = publication.findall('Imprint[@FunctionType="Publication"]')
-    # Multiple imprints can describe historical moves. Do not pick today's address.
-    if len(imprints) != 1:
+    if len(imprints) == 1:
+        selected = imprints[0]
+    elif len(imprints) == 2:
+        originals = [i for i in imprints if i.get('ImprintType') == 'Original']
+        currents = [i for i in imprints if i.get('ImprintType') == 'Current']
+        current_start = re.match(r'(\d{4})\s*[-\u2013]', _text(currents[0], 'ImprintFull')) if len(currents) == 1 else None
+        if len(originals) != 1 or not current_start or int(current_start[1]) <= int(first):
+            return {}
+        selected = originals[0] if int(year) < int(current_start[1]) else currents[0]
+    else:
         return {}
-    place = _text(imprints[0], 'Place').rstrip(' :;,.')
+    place = _text(selected, 'Place').rstrip(' :;,.')
     if not place or place.lower() in {'[s.l.]', '[s. l.]', '[place of publication not identified]'}:
         return {}
     return _stamp({'city': '[' + place.strip('[]') + ']', '_catalog_inference': True},
@@ -210,22 +218,21 @@ def enrich_article(original):
     params = {'query': 'DOI:"' + meta['doi'].replace('"', '') + '"', 'format': 'json',
               'resultType': 'core', 'pageSize': 2}
     source_url = EPMC + '/search?' + urlencode(params)
+    core = {}
     try:
         records = _json(EPMC + '/search', params=params).get('resultList', {}).get('result', [])
         matches = [r for r in records if r.get('doi', '').casefold() == meta['doi'].casefold()]
-        if not matches:
-            return meta
-        if len(matches) != 1:
+        if len(matches) > 1:
             issue('AMBIGUOUS_SOURCE', 'Europe PMC retornou mais de um registro para o DOI; complementacao suspensa.')
             return meta
-        core = _core_metadata(matches[0], source_url)
-        if not _same_work(meta, core):
-            issue('SOURCE_IDENTITY_CONFLICT', 'O registro Europe PMC nao corresponde ao titulo/autoria identificados.')
-            return meta
-        merge(core)
+        if matches:
+            core = _core_metadata(matches[0], source_url)
+            if not _same_work(meta, core):
+                issue('SOURCE_IDENTITY_CONFLICT', 'O registro Europe PMC nao corresponde ao titulo/autoria identificados.')
+                return meta
+            merge(core)
     except (LookupFailure, ValueError, TypeError, KeyError, AttributeError):
         issue('ENRICHMENT_UNAVAILABLE', 'Europe PMC: complementacao indisponivel ou invalida; dados anteriores preservados.')
-        return meta
 
     pmcid = core.get('_pmcid', '')
     if re.fullmatch(r'PMC[0-9]+', pmcid):
@@ -240,6 +247,15 @@ def enrich_article(original):
             issue('ENRICHMENT_UNAVAILABLE', 'PMC: XML indisponivel ou invalido; periodo completo pode estar pendente.')
 
     nlmid = core.get('_nlmid', '')
+    issns = core.get('_issns') or meta.get('_issns', [])
+    if not nlmid and issns and not meta.get('city'):
+        try:
+            search_params = {'db': 'nlmcatalog', 'term': issns[0] + '[ISSN]', 'retmode': 'json'}
+            found = _json('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi', params=search_params).get('esearchresult', {})
+            if found.get('count') == '1' and len(found.get('idlist', [])) == 1:
+                nlmid = found['idlist'][0]
+        except (LookupFailure, ValueError, TypeError, KeyError, AttributeError):
+            issue('ENRICHMENT_UNAVAILABLE', 'NLM Catalog: identificacao do periodico indisponivel.')
     if not meta.get('city') and re.fullmatch(r'[0-9]{6,16}[A-Z]?', nlmid):
         params = {'db': 'nlmcatalog', 'id': nlmid, 'retmode': 'xml'}
         url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
@@ -249,10 +265,14 @@ def enrich_article(original):
                 time.sleep(max(0, 0.35 - (time.monotonic() - _nlm_last_request)))
                 _nlm_last_request = time.monotonic()
                 root = _xml(_get(url, params=params))
-            location = _catalog_location(root, nlmid, core['_issns'], meta.get('year'), url + '?' + urlencode(params))
+            location = _catalog_location(root, nlmid, issns, meta.get('year'), url + '?' + urlencode(params))
             if location:
                 merge(location)
                 issue('CATALOG_LOCATION', 'Local entre colchetes obtido no catalogo do periodico (ISSN e intervalo de publicacao conferidos), nao na afiliacao dos autores.', 'city', 'info')
+                if all(meta.get(key) for key in ('volume', 'issue', 'page', 'start_month')):
+                    for entry in meta['_issues']:
+                        if entry['code'] == 'ENRICHMENT_UNAVAILABLE' and entry['message'].startswith('Europe PMC:'):
+                            entry.update(severity='info', resolution='Elementos essenciais conferidos na Crossref e no NLM Catalog.')
         except (LookupFailure, ValueError, TypeError, KeyError, AttributeError):
             issue('ENRICHMENT_UNAVAILABLE', 'NLM Catalog: local de publicacao nao recuperado.')
     return meta

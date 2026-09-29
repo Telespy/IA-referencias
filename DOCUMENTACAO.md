@@ -163,15 +163,18 @@ Anexos PDF/DOCX/TXT nao sao lidos automaticamente pelo comando.
 | --- | --- |
 | DOI | Consulta Crossref e verifica a identidade da obra. |
 | Artigo com titulo/autoria/ano | Busca Crossref, compara candidatos e complementa quando possivel. |
-| Titulo isolado | Busca Crossref e Open Library; candidatos ambiguos sao exibidos. |
+| Titulo isolado | Busca Crossref e Open Library; para artigo selecionado, reconfirma o DOI na Crossref antes de usar os metadados. Candidatos ambiguos sao exibidos. |
 | ISBN | Confere digito verificador e consulta Google Books/Open Library. |
-| Lei federal ordinaria/complementar | Consulta cadastro de normas do Senado por tipo, numero e ano. |
+| Lei federal ordinaria | Confere numero, ano, data e ementa na pagina oficial do Planalto (atos desde 2003). Se indisponivel, tenta o cadastro do Senado. |
+| Lei complementar federal | Consulta o cadastro de normas do Senado por tipo, numero e ano. |
 | PL com casa identificada | Consulta processos do Senado ou proposicoes da Camara. |
 | Outros tipos reconhecidos | Formata os elementos informados e indica os nao verificados. |
 
 Artigos identificados podem receber volume, numero, pagina/localizador,
-periodo e autoria de Europe PMC/PMC. O NLM Catalog pode apoiar a atribuicao
-do local da revista quando ISSN e intervalo de publicacao concordam. A base
+periodo e autoria de Europe PMC/PMC. Quando Europe PMC falha, o ISSN da
+Crossref pode identificar um registro unico no NLM Catalog. O local da
+revista so e atribuido quando ISSN, ano e intervalo da sede editorial
+concordam; mudancas de sede com data explicita sao respeitadas. A base
 do IBGE padroniza nomes de cidades brasileiras e preserva qualificadores
 necessarios. A sede atual de revista/editora nao comprova, por si so, o
 local da publicacao citada.
@@ -181,7 +184,11 @@ Nesse caso, informe o ISBN da edicao. `Lei 11892/2008` sem jurisdicao pede
 esclarecimento; `PL 2630/2020` sem casa legislativa tambem. Projetos sao
 referenciados como projetos, com a situacao informada separadamente e datada.
 
-Para leis, o cadastro do Senado pode fornecer apenas a pagina inicial do
+Quando a pagina do Planalto e conferida, a lei usa titulo em negrito, ementa,
+`Brasilia, DF: Presidencia da Republica, ano`, URL oficial e data de acesso.
+Exemplo: `Lei federal 12503/2011`. O local decorre da data e local indicados
+no proprio ato; a consulta nao comprova vigencia. Se o Planalto nao responder,
+o sistema nao atribui essa URL sem conferencia. Para leis, o cadastro do Senado pode fornecer apenas a pagina inicial do
 Diario Oficial da Uniao. Secao e paginacao completa ficam pendentes quando
 nao aparecem na fonte. A consulta bibliografica nao determina vigencia,
 revogacao total nem texto consolidado. Leis estaduais e municipais e busca

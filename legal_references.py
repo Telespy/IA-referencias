@@ -5,8 +5,10 @@ import unicodedata
 from datetime import datetime
 from urllib.parse import urlencode, urlsplit
 
+from bs4 import BeautifulSoup
+
 from config import ABNT_MONTHS_PT
-from sources import _json, _stamp
+from sources import LookupFailure, _get, _json, _stamp
 
 SENADO = 'https://legis.senado.leg.br/dadosabertos'
 CAMARA = 'https://dadosabertos.camara.leg.br/api/v2'
@@ -97,7 +99,65 @@ def _place(meta, authority_url):
     return meta
 
 
-def _law(query):
+def _planalto_url(query):
+    year = int(query['legal_year'])
+    if query['legal_type'] != 'LEI' or year < 2003:
+        return ''
+    first = 2003 + 4 * ((year - 2003) // 4)
+    return (f'https://www.planalto.gov.br/ccivil_03/_ato{first}-{first + 3}/'
+            f'{year}/lei/l{int(query["legal_number"])}.htm')
+
+
+def _planalto_law(query):
+    url = _planalto_url(query)
+    if not url:
+        return {}
+    response = _get(url, headers={
+        'User-Agent': 'Mozilla/5.0 (compatible; BrainFormat/3.0; official legislation lookup)',
+        'Accept': 'text/html,application/xhtml+xml',
+    })
+    if response is None:
+        return {}
+    soup = BeautifulSoup(response.content, 'html.parser')
+    text = ' '.join(soup.get_text(' ', strip=True).split())
+    if not re.search(r'Presid[eê]ncia da Rep[uú]blica', text, re.I):
+        return {}
+    number = f'{int(query["legal_number"]):,}'.replace(',', '.')
+    heading = re.search(
+        rf'\bLEI\s+N\s*[.º°o]?\s*{re.escape(number)}\s*,?\s*DE\s+'
+        r'(\d{1,2})\s+DE\s+([A-ZÇÃÉÊÍÓÔÚ]+)\s+DE\s+(\d{4})\.?', text, re.I)
+    if not heading or heading[3] != query['legal_year']:
+        return {}
+    month = _fold(heading[2])
+    if month not in MONTHS:
+        return {}
+    try:
+        signed = datetime(int(heading[3]), MONTHS.index(month) + 1, int(heading[1])).date()
+    except ValueError:
+        return {}
+    end = re.search(r'\b[OA]\s+PRESIDENT[EA]\s+DA\s+REP[UÚ]BLICA\b', text[heading.end():], re.I)
+    if not end or end.start() > 1200:
+        return {}
+    ementa = text[heading.end():heading.end() + end.start()].strip(' .')
+    if not ementa or len(ementa) > 750:
+        return {}
+    dateline = re.search(r'\bBras[ií]lia\s*,\s*' + re.escape(heading[1]) + r'\s+de\s+'
+                         + re.escape(heading[2]) + r'\s+de\s+' + re.escape(heading[3]), text, re.I)
+    if not dateline:
+        return {}
+    title = f'Lei nº {number}, de {signed.day} de {heading[2].lower()} de {signed.year}'
+    meta = _stamp({**_identity(query), 'title': title, 'jurisdiction': 'BRASIL',
+                   'authors': [{'family': 'BRASIL', 'given': '', 'is_corporate': True}],
+                   'ementa': ementa + '.', 'legal_date': signed.strftime('%d/%m/%Y'),
+                   'city': 'Brasília, DF', 'publisher': 'Presidência da República',
+                   'url': url, 'publication_mode': 'planalto', '_official_legal': True},
+                  'Presidência da República - Planalto', url)
+    meta['_issues'] = [legal_issue('LEGAL_SCOPE',
+        'Conferencia bibliografica da pagina do Planalto; nao certifica vigencia nem consolida alteracoes posteriores.', 'info')]
+    return meta
+
+
+def _senado_law(query):
     kind = 'Lei' if query['legal_type'] == 'LEI' else 'Lcp'
     url = f"{SENADO}/legislacao/{kind}/{query['legal_number']}/{query['legal_year']}.json"
     docs = _list(_json(url).get('DetalheDocumento', {}).get('documentos', {}).get('documento'))
@@ -136,6 +196,16 @@ def _law(query):
     meta.setdefault('_issues', []).append(legal_issue('LEGAL_SCOPE',
         'Conferencia bibliografica da publicacao original; nao certifica vigencia nem consolida alteracoes posteriores.', 'info'))
     return meta
+
+
+def _law(query):
+    try:
+        planalto = _planalto_law(query)
+    except LookupFailure:
+        planalto = {}
+    if planalto:
+        return planalto
+    return _senado_law(query)
 
 
 def _bill(query):

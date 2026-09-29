@@ -15,11 +15,13 @@ class LookupFailure(Exception):
 
 def _request(url, **kwargs):
     # One retry for idempotent reads only. Never weaken TLS or follow redirects.
+    headers = {"User-Agent": "BrainFormat/3.0 (bibliographic metadata lookup)"}
+    headers.update(kwargs.pop('headers', {}))
     for attempt in range(2):
         try:
             response = requests.get(
                 url, timeout=(5, 12), allow_redirects=False,
-                headers={"User-Agent": "BrainFormat/3.0 (bibliographic metadata lookup)"}, **kwargs
+                headers=headers, **kwargs
             )
         except requests.exceptions.SSLError:
             raise
@@ -127,6 +129,7 @@ def _crossref_metadata(data):
         'page': normalize_pages(data.get('page') or data.get('article-number')),
         'publisher': _plain(data.get('publisher', '')), 'doi': doi,
         'url': resource if resource.startswith(('https://', 'http://')) else '',
+        '_issns': [s for s in data.get('ISSN', []) if re.fullmatch(r'[0-9]{4}-[0-9]{3}[0-9X]', str(s))],
         '_warnings': list(dict.fromkeys(cleanup)),
     }
     if len(parts) > 1 and isinstance(parts[1], int) and 1 <= parts[1] <= 12:

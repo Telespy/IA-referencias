@@ -1,5 +1,6 @@
 import copy
 import unittest
+from datetime import date
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -13,6 +14,7 @@ from sources import LookupFailure
 from title_lookup import select_title, search_book_titles, fetch_title_candidates
 
 TITLE = 'ELMO 1.0: a helmet interface for CPAP and high-flow oxygen delivery'
+VENTILATION = 'Mechanical Ventilation to Minimize Progression of Lung Injury in Acute Respiratory Failure'
 ARTICLE = {'item_type': 'journalArticle', 'title': TITLE, 'authors': [{'family': 'Holanda'}],
            'year': '2021', 'doi': '10.36416/1806-3756/e20200590', 'volume': '47', 'issue': '3',
            'page': 'e20200590', 'city': 'Fortaleza', 'journal': 'Jornal Brasileiro de Pneumologia',
@@ -38,6 +40,9 @@ class TitleTests(unittest.TestCase):
         patcher = patch('main.enrich_article', side_effect=lambda meta: meta)
         patcher.start()
         self.addCleanup(patcher.stop)
+        doi_patcher = patch('main.fetch_crossref_doi', return_value=ARTICLE)
+        doi_patcher.start()
+        self.addCleanup(doi_patcher.stop)
 
     def correct(self, text, candidates, issues=None):
         with patch('main.fetch_title_candidates', return_value={'candidates': candidates, 'issues': issues or []}):
@@ -77,6 +82,23 @@ class TitleTests(unittest.TestCase):
         result = self.correct(TITLE, [dict(ARTICLE, title='An unrelated clinical trial')])
         self.assertFalse(result['approved'])
         self.assertFalse(result['candidates'])
+
+    def test_selected_title_rechecks_doi_and_uses_canonical_record(self):
+        candidate = dict(ARTICLE, title=VENTILATION, authors=[{'family': 'Wrong'}],
+                         doi='10.1164/rccm.201605-1081cp')
+        canonical = dict(candidate, authors=[{'family': 'Brochard', 'given': 'Laurent'}],
+                         volume='195', issue='4', page='438-442', journal='American Journal of Respiratory and Critical Care Medicine')
+        with patch('main.fetch_crossref_doi', return_value=canonical) as doi_fetch:
+            result = self.correct(VENTILATION, [candidate])
+        doi_fetch.assert_called_once_with(candidate['doi'])
+        self.assertEqual(result['meta']['authors'], canonical['authors'])
+        self.assertIn('v. 195, n. 4, p. 438-442', result['abnt'])
+
+    def test_title_doi_mismatch_stays_unverified(self):
+        with patch('main.fetch_crossref_doi', return_value=dict(ARTICLE, title='Different paper')):
+            result = self.correct(TITLE, [ARTICLE])
+        self.assertFalse(result['identity_verified'])
+        self.assertIn('TITLE_DOI_UNVERIFIED', [i['code'] for i in result['issues']])
 
     def test_book_work_does_not_invent_edition(self):
         book = {'item_type': 'book', 'title': 'Dom Casmurro', 'authors': [{'family': 'Assis', 'given': 'Machado de'}],
@@ -134,8 +156,30 @@ class TitleTests(unittest.TestCase):
 
 class LegalTests(unittest.TestCase):
     def law(self, raw='Lei federal 11892/2008', payload=None):
-        with patch('legal_references._json', return_value=copy.deepcopy(payload or LAW)):
+        with patch('legal_references._planalto_law', return_value={}), patch('legal_references._json', return_value=copy.deepcopy(payload or LAW)):
             return process_reference_line(raw)
+
+    def test_planalto_law_reference_uses_presidency_imprint(self):
+        from unittest.mock import Mock
+        html = ('<html><body>Presidência da República. Casa Civil. '
+                'LEI Nº 12.503, DE 11 DE OUTUBRO DE 2011. '
+                'Denomina “Rodovia Joaquim Pinto Lapa” o trecho da rodovia BR-408 compreendido entre a cidade de Carpina e o entroncamento com a BR-232, no Estado de Pernambuco. '
+                'A PRESIDENTA DA REPÚBLICA Faço saber que o Congresso Nacional decreta. '
+                'Brasília, 11 de outubro de 2011; 190º da Independência.</body></html>')
+        with patch('correction.correction_today', return_value=date(2026, 9, 29)), patch('legal_references._get', return_value=Mock(content=html.encode('utf-8'))) as request:
+            result = process_reference_line('Lei federal 12503/2011')
+        self.assertEqual(request.call_args.args[0], 'https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12503.htm')
+        self.assertIn('Mozilla/5.0', request.call_args.kwargs['headers']['User-Agent'])
+        self.assertTrue(result['approved'], result)
+        self.assertEqual(result['abnt'],
+            'BRASIL. **Lei nº 12.503, de 11 de outubro de 2011**. Denomina “Rodovia Joaquim Pinto Lapa” o trecho da rodovia BR-408 compreendido entre a cidade de Carpina e o entroncamento com a BR-232, no Estado de Pernambuco. Brasília, DF: Presidência da República, 2011. Disponível em: [https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12503.htm](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12503.htm). Acesso em: 29 set. 2026.')
+
+    def test_planalto_identity_mismatch_falls_back_to_senado(self):
+        from unittest.mock import Mock
+        wrong = '<html>Presidência da República LEI Nº 12.504, DE 11 DE OUTUBRO DE 2011. Outro assunto. A PRESIDENTA DA REPÚBLICA Brasília, 11 de outubro de 2011</html>'
+        with patch('legal_references._get', return_value=Mock(content=wrong.encode('utf-8'))), patch('legal_references._json', return_value=LAW):
+            result = process_reference_line('Lei federal 12503/2011')
+        self.assertFalse(result['identity_verified'])
 
     def test_number_year_and_full_date_parsed(self):
         for raw in ('Lei federal 11892/2008', 'BRASIL. Lei n\u00ba 11.892, de 29 de dezembro de 2008.'):

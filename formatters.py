@@ -323,10 +323,13 @@ def format_abnt(meta: dict) -> str:
         if item_type == 'bill' and meta.get('legislative_house'):
             house = {'camara': 'Câmara dos Deputados', 'senado': 'Senado Federal'}.get(meta['legislative_house'], meta['legislative_house'])
             parts.append(f'{house}.')
-        parts.append(_sentence_with_period(raw_title))
+        if item_type == 'legislation' and meta.get('publication_mode') == 'planalto':
+            parts.append(f'**{raw_title.rstrip(".")}**.')
+        else:
+            parts.append(_sentence_with_period(raw_title))
         if ementa:
             parts.append(_sentence_with_period(ementa))
-        if meta.get('publication_title'):
+        if meta.get('publication_title') and meta.get('publication_mode') != 'planalto':
             publication = [f'**{meta["publication_title"]}**', city]
             if meta.get('section'):
                 publication.append(f'Seção {meta["section"]}')
@@ -833,6 +836,9 @@ def get_missing_attributes(meta: dict) -> list:
                 missing.append('Casa legislativa')
             if not publisher:
                 missing.append('Orgao de publicacao do projeto')
+        elif meta.get('publication_mode') == 'planalto':
+            if not publisher:
+                missing.append('Orgao responsavel pela pagina oficial')
         elif not meta.get('publication_title') or not meta.get('publication_date'):
             missing.append('Veiculo e data de publicacao oficial')
 

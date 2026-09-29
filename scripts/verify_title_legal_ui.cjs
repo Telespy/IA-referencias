@@ -9,15 +9,15 @@ const { chromium } = require(process.argv[2] || 'playwright');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://localhost:8000');
-    await page.locator('#referenceInput').fill('Dom Casmurro\nLei federal 11892/2008\nSenado Federal. PL 2338/2023');
+    await page.locator('#referenceInput').fill('Mechanical Ventilation to Minimize Progression of Lung Injury in Acute Respiratory Failure\nLei federal 12503/2011');
     await page.locator('#btnFormat').click();
     await page.locator('#resultsSection:not(.hidden)').waitFor({ timeout: 180000 });
     const text = await page.locator('#compList').innerText();
-    assert(text.includes('Candidato:'), 'Book title must expose candidates');
-    assert(text.includes('Projeto de lei n. 2338'), 'Senate bill must be formatted');
-    assert(text.includes('29 de dezembro de 2008'), 'Law signature date must be retained');
-    assert(text.includes('secao e extensao completa'), 'Unverified publication details must be visible');
-    assert(text.includes('nao a uma lei sancionada'), 'Bill must remain distinct from a law');
+    assert(text.includes('v. 195, n. 4, p. 438-442'), 'Article title must resolve complete issue metadata');
+    assert(text.includes('[New York, NY]'), 'Historical journal place must be present');
+    assert(text.includes('Lei nº 12.503, de 11 de outubro de 2011'), 'Law signature date must be retained');
+    assert(text.includes('Presidência da República'), 'Planalto source must use the presidency imprint');
+    assert(text.includes('Rodovia Joaquim Pinto Lapa'), 'Law ementa must be present');
     fs.mkdirSync('artifacts/title-legal-verification', { recursive: true });
     for (const [name, width, height] of [['desktop', 1440, 1000], ['mobile', 390, 844]]) {
       await page.setViewportSize({ width, height });
@@ -29,7 +29,7 @@ const { chromium } = require(process.argv[2] || 'playwright');
       await page.screenshot({ path: `artifacts/title-legal-verification/${name}.png`, animations: 'disabled' });
     }
     assert.deepEqual(errors, []);
-    console.log('Title/legal UI: real API, candidates, legal warnings, desktop/mobile layout OK');
+    console.log('Title/legal UI: real API, article title, Planalto law, desktop/mobile layout OK');
   } finally {
     await browser.close();
   }

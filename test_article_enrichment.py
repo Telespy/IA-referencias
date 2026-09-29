@@ -227,6 +227,27 @@ class EnrichmentTests(unittest.TestCase):
         root = _xml(xml_response(xml))
         self.assertEqual(_catalog_location(root, '101222274', ['1806-3756'], '2021', 'catalog'), {})
 
+    def test_catalog_dated_move_supports_historical_place(self):
+        xml = CATALOG.replace('<Imprint FunctionType="Publication"><Place>Brasilia, DF, Brasil :</Place></Imprint>',
+            '<Imprint ImprintType="Original" FunctionType="Publication"><Place>New York, NY :</Place></Imprint>'
+            '<Imprint ImprintType="Current" FunctionType="Publication"><Place>Oxford :</Place><ImprintFull>2026- : Oxford : Oxford University Press</ImprintFull></Imprint>')
+        root = _xml(xml_response(xml.replace('<PublicationEndYear>2025</PublicationEndYear>', '<PublicationEndYear>9999</PublicationEndYear>')))
+        self.assertEqual(_catalog_location(root, '101222274', ['1806-3756'], '2017', 'catalog')['city'], '[New York, NY]')
+        self.assertEqual(_catalog_location(root, '101222274', ['1806-3756'], '2026', 'catalog')['city'], '[Oxford]')
+
+    def test_crossref_issn_finds_catalog_when_europe_pmc_is_unavailable(self):
+        base = dict(BASE, volume='195', issue='4', page='438-442', start_month=2, year='2017',
+                    _issns=['1073-449X'])
+        xml = CATALOG.replace('101222274', '9421642').replace('1806-3756', '1073-449X')
+        with patch('article_enrichment._json', side_effect=[LookupFailure('offline'),
+                 {'esearchresult': {'count': '1', 'idlist': ['9421642']}}]), \
+                patch('article_enrichment._get', return_value=xml_response(xml)), \
+                patch('article_enrichment.time.sleep'):
+            result = enrich_article(base)
+        self.assertEqual(result['city'], '[Brasilia, DF, Brasil]')
+        outage = next(i for i in result['_issues'] if i['code'] == 'ENRICHMENT_UNAVAILABLE')
+        self.assertEqual(outage['severity'], 'info')
+
     def test_non_article_never_calls_supplemental_services(self):
         with patch('article_enrichment._json') as request:
             self.assertEqual(enrich_article({'item_type': 'book'}), {'item_type': 'book'})
