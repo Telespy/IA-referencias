@@ -69,6 +69,7 @@ class ReferenceResult(BaseModel):
     item_type: str
     item_type_label: str
     abnt: str
+    citation: str = ''
     apa: str
     meta: dict[str, Any] = Field(default_factory=dict)
     status: str

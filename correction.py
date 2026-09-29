@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from config import ABNT_MONTHS_PT
-from formatters import format_abnt, format_apa, get_item_type_label, get_missing_attributes
+from formatters import format_abnt, format_apa, format_case_citation, get_item_type_label, get_missing_attributes
 from parsers import identify_input_type, parse_raw_citation_text
 from publication_places import normalize_place
 from reference_validation import normalized, select_candidate, verify_work_identity
@@ -31,9 +31,12 @@ FIELD_LABELS = {
     'legal_type': 'tipo legislativo', 'legal_date': 'data de assinatura',
     'legislative_house': 'casa legislativa', 'publication_title': 'veiculo de publicacao',
     'publication_date': 'data de publicacao',
+    'case_class': 'classe processual', 'case_number': 'numero do processo',
+    'case_state': 'UF do processo', 'court': 'tribunal', 'court_body': 'orgao julgador',
+    'relator': 'relator', 'judgment_date': 'data do julgamento',
 }
 SUPPORTED_TYPES = {'book', 'chapter', 'journalArticle', 'proceedings', 'thesis',
-                   'legislation', 'bill', 'legal', 'website', 'newspaperArticle', 'patent'}
+                   'legislation', 'bill', 'legal', 'website', 'newspaperArticle', 'patent', 'caseLaw'}
 MANUAL_PATTERN = re.compile(
     r'\b(?:jurisprud[eê]ncia|ac[oó]rd[aã]o|s[uú]mula|habeas corpus|'
     r'podcast|partitura|documento cartogr[aá]fico|mapa topogr[aá]fico|'
@@ -45,7 +48,7 @@ def correction_today():
 
 
 def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_url, enrich=None,
-                      fetch_title=None, fetch_legal=None):
+                      fetch_title=None, fetch_legal=None, fetch_case=None):
     raw = raw_line.strip()
     if not raw:
         return None
@@ -90,11 +93,15 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
 
     doi = parsed.get('doi', '')
     isbn = parsed.get('isbn', '')
-    unsupported = bool(MANUAL_PATTERN.search(raw_for_parser))
+    unsupported = parsed.get('item_type') != 'caseLaw' and bool(MANUAL_PATTERN.search(raw_for_parser))
     if unsupported:
         issue('UNSUPPORTED_TYPE', 'Tipo de documento requer revisao manual; a entrada original foi preservada.')
     elif online:
-        if parsed.get('item_type') in {'legislation', 'bill'} and fetch_legal:
+        if parsed.get('item_type') == 'caseLaw' and fetch_case:
+            fetched = lookup(fetch_case, parsed, 'Supremo Tribunal Federal')
+            if not fetched:
+                issue('CASE_UNVERIFIED', 'Acórdão não confirmado no processo e PDF oficiais do STF; confira classe, número e UF.')
+        elif parsed.get('item_type') in {'legislation', 'bill'} and fetch_legal:
             response = lookup(fetch_legal, parsed, 'Fontes legislativas oficiais')
             fetched = response.get('match', {})
             issues.extend(response.get('issues', []))
@@ -155,7 +162,7 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
     else:
         issue('OFFLINE', 'Consulta online desativada. Os dados bibliograficos nao foram verificados.')
 
-    if fetched and fetched.get('item_type') not in {'legislation', 'bill'} and online and enrich:
+    if fetched and fetched.get('item_type') not in {'legislation', 'bill', 'caseLaw'} and online and enrich:
         enriched = lookup(enrich, fetched, 'Complementacao bibliografica')
         if enriched:
             fetched = enriched
@@ -266,6 +273,8 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
             missing.append('Jurisdicao da legislacao')
         if not fetched.get('_official_legal'):
             issue('LEGAL_REVIEW', 'Legislacao: conferir numero, data, jurisdicao, ementa e veiculo de publicacao na fonte oficial.')
+    if item_type == 'caseLaw' and not fetched:
+        issue('CASE_REVIEW', 'Julgado não confirmado na fonte oficial; ementa, relator e datas não foram inventados.')
     unverified = [key for key in FIELD_LABELS if meta.get(key) and not evidence.get(key, {}).get('verified')]
     if unverified:
         issue('UNVERIFIED_FIELDS', 'Dados ainda sem confirmacao: ' + ', '.join(FIELD_LABELS[k] for k in unverified) + '.')
@@ -279,6 +288,7 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
         'raw': raw, 'meta': meta, 'item_type': item_type,
         'item_type_label': get_item_type_label(item_type),
         'abnt': abnt, 'apa': apa, 'missing_fields': list(dict.fromkeys(missing)),
+        'citation': format_case_citation(meta) if item_type == 'caseLaw' else '',
         'status': 'verified' if approved else 'needs_review', 'approved': approved,
         'identity_verified': bool(fetched), 'issues': issues,
         'warnings': [i['message'] for i in issues if i['severity'] != 'info'],
@@ -299,7 +309,12 @@ def correction_value(value):
 def reference_report(result, index=None, style='abnt'):
     label = 'CONFERIDA NAS FONTES' if result.get('approved') else 'REVISAO NECESSARIA'
     prefix = f'{index}. ' if index is not None else ''
-    lines = [f'{prefix}[{label}]', result[style]]
+    lines = [f'{prefix}[{label}]']
+    if result.get('citation') and style == 'abnt':
+        lines.append('Citação: ' + result['citation'])
+        lines.append('Referência: ' + result[style])
+    else:
+        lines.append(result[style])
     for correction in result.get('corrections', []):
         field = FIELD_LABELS.get(correction['field'], correction['field'])
         lines.append(f'Alteracao em {field}: {correction_value(correction["before"])} -> {correction_value(correction["after"])}')

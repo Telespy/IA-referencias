@@ -46,6 +46,7 @@ Telegram ──> Hermes ──> plugin ─────┘          │
 | `title_lookup.py` | Busca por titulo na Crossref e Open Library e lista candidatos. |
 | `article_enrichment.py` | Complementa artigos com Europe PMC, XML do PMC e NLM Catalog. |
 | `legal_references.py` | Leis federais no Senado e projetos de lei nas duas casas. |
+| `case_law.py` | Consulta ADIs do STF no andamento oficial e confere classe, numero, UF, relator e ementa no PDF do acordao. |
 | `publication_places.py` | Normaliza localidades brasileiras sem atribuir uma editora/revista a sua sede. |
 | `formatters.py` | Monta as saidas ABNT e APA e identifica elementos ausentes. |
 | `public/` | Interface web e visualizacao de avisos, fontes e candidatos. |
@@ -61,6 +62,26 @@ precisa ser enviado ao GitHub.
 `config.py`, `fetchers.py`, `app.py`, `run.py` e `vercel.json` sao arquivos
 anteriores/auxiliares. O fluxo principal em Docker utiliza os modulos da
 tabela acima. A configuracao atual de publicacao e a do Docker Compose.
+
+### Julgados do STF
+
+Para um acordao de acao direta de inconstitucionalidade, envie por exemplo
+`STF ADI 4449/AL` ou `BRASIL. Supremo Tribunal Federal. Acao Direta de
+Inconstitucionalidade 4.449/AL`. A resposta ABNT traz dois campos separados:
+`citation` (citacao curta, na ordem STF, classe/numero, relator, orgao,
+julgamento, publicacao DJe e pagina quando informada) e `abnt` (referencia
+com ementa, relator, local, editora institucional, URL oficial e acesso).
+O relatorio do Telegram tambem mostra `Citacao:` e `Referencia:`.
+
+O sistema consulta o processo e o PDF do inteiro teor no portal oficial do
+STF; distingue o julgamento principal de embargos posteriores. A pagina
+do DJe nao e inventada: se a pessoa a fornecer, ela aparece com aviso de
+que a paginacao nao foi verificada. Se o portal nao responder ou o PDF nao
+confirmar os dados, a referencia fica marcada para revisao e os campos
+ausentes nao sao completados por suposicao. Nesta versao, a consulta
+automatica de jurisprudencia cobre apenas ADIs do STF, nao outras classes
+ou tribunais. A saida APA para julgados reaproveita a referencia ABNT e
+nao deve ser tratada como formatacao APA validada.
 
 ## 3. Requisitos e instalacao
 

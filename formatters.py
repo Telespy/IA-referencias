@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from config import format_date_abnt, format_date_apa, is_english_publication
 from publication_places import normalize_place
 
@@ -276,6 +277,33 @@ def _format_bold_title(raw_title: str) -> str:
     else:
         return f"**{format_sentence_case(raw_title.strip(), is_subtitle=False)}**"
 
+def _case_date_abnt(value):
+    try:
+        day = datetime.strptime(value, '%d/%m/%Y')
+    except ValueError:
+        return value
+    months = ('jan.', 'fev.', 'mar.', 'abr.', 'maio', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.')
+    return f'{day.day} {months[day.month - 1]} {day.year}'
+
+
+def format_case_citation(meta):
+    if meta.get('item_type') != 'caseLaw' or not meta.get('case_number'):
+        return ''
+    number = f'{int(meta["case_number"]):,}'.replace(',', '.')
+    fields = ['STF', f'{meta.get("case_class", "ADI")} {number}']
+    if meta.get('relator'):
+        fields.append(f'Rel. Min. {meta["relator"]}')
+    if meta.get('court_body'):
+        fields.append(meta['court_body'])
+    if meta.get('judgment_date'):
+        fields.append(f'j. {meta["judgment_date"]}')
+    if meta.get('publication_date'):
+        fields.append(f'DJe {meta["publication_date"]}')
+    if meta.get('case_page'):
+        fields.append(f'p. {meta["case_page"]}')
+    return '(' + ', '.join(fields) + ')'
+
+
 def format_abnt(meta: dict) -> str:
     """Gera referência no padrão ABNT (NBR 6023) para os 10 tipos de documento."""
     if not meta:
@@ -314,8 +342,23 @@ def format_abnt(meta: dict) -> str:
     
     parts = []
     
+    if item_type == 'caseLaw':
+        if meta.get('jurisdiction'):
+            parts.append(meta['jurisdiction'].upper() + '.')
+        if meta.get('court'):
+            parts.append(meta['court'].rstrip('.') + '.')
+        if raw_title:
+            parts.append(f'**{raw_title.rstrip(".")}**.')
+        if meta.get('ementa'):
+            parts.append(meta['ementa'].rstrip('.') + '.')
+        if meta.get('relator'):
+            parts.append(f'Relator: Min. {meta["relator"]},' if meta.get('judgment_date') else f'Relator: Min. {meta["relator"]}.')
+        if meta.get('judgment_date'):
+            parts.append(f'julgado em {_case_date_abnt(meta["judgment_date"])}.')
+        parts.append(f'{city}: {publisher or "[s. n.]"}, [{year}].' if year else f'{city}: {publisher or "[s. n.]"}, [s. d.].')
+
     # 1. LEGISLAÇÃO (ABNT NBR 6023 Seção 7.3)
-    if item_type in {"legislation", "bill"}:
+    elif item_type in {"legislation", "bill"}:
         jurisdiction = meta.get("jurisdiction", "").upper()
         ementa = meta.get("ementa", "")
         if jurisdiction:
@@ -522,6 +565,8 @@ def format_apa(meta: dict) -> str:
     """Gera referência no padrão APA (7ª Edição) para todos os tipos de documento."""
     if not meta:
         return "Reference not found."
+    if meta.get('item_type') == 'caseLaw':
+        return format_abnt(meta)
     
     authors_str = _format_authors_apa(meta.get("authors", []))
     raw_title = meta.get("title", "")
@@ -721,7 +766,7 @@ ITEM_TYPE_LABELS = {
 
 def get_item_type_label(item_type: str) -> str:
     """Retorna o nome legível e formatado do tipo de referência."""
-    return ITEM_TYPE_LABELS.get(item_type, "📄 Artigo / Obra Geral")
+    return 'Julgado / Acórdão' if item_type == 'caseLaw' else ITEM_TYPE_LABELS.get(item_type, "📄 Artigo / Obra Geral")
 
 def get_missing_attributes(meta: dict) -> list:
     """
@@ -755,7 +800,15 @@ def get_missing_attributes(meta: dict) -> list:
         missing.append("Ano de publicação")
 
     # Regras específicas por tipo de documento segundo ABNT NBR 6023:2018
-    if item_type == "journalArticle":
+    if item_type == 'caseLaw':
+        for field, label in (('case_state', 'UF do processo'), ('ementa', 'Ementa do acórdão'),
+                             ('relator', 'Relator'), ('court_body', 'Órgão julgador'),
+                             ('judgment_date', 'Data do julgamento'),
+                             ('publication_date', 'Data de publicação no DJe'),
+                             ('url', 'Link oficial do inteiro teor')):
+            if not meta.get(field):
+                missing.append(label)
+    elif item_type == "journalArticle":
         journal = meta.get("journal", "")
         if not journal:
             missing.append("Nome do periódico/revista")

@@ -1,5 +1,6 @@
 import re
 from legal_references import parse_legal_request
+from case_law import parse_case_request
 
 DOI_REGEX = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
 ISBN_REGEX = re.compile(r'(?:ISBN(?:-1[03])?:?\s*)?(?=[0-9X]{10}$|(?=(?:[0-9]{3}[- ]){3})[0-9- ]{17}$)[0-9]{1,5}[- ]?[0-9]+[- ]?[0-9]+[- ]?[0-9X]', re.IGNORECASE)
@@ -806,6 +807,11 @@ def parse_raw_citation_text(text: str) -> dict:
     line_no_id = re.sub(r'https?://[^\s)]+|10\.\d{4,9}/[-._;()/:A-Z0-9]+', '', line).strip()
     if not line_no_id or line == isbn or line == doi:
         return {'doi': doi, 'isbn': isbn, 'url': url, 'access_date': access_date}
+
+    case = parse_case_request(line)
+    if case:
+        case.update(url=url, access_date=access_date)
+        return case
 
     before_in = ""
     after_in = ""

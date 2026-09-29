@@ -45,7 +45,8 @@ HELP = (
     'Envie /referencias seguido da lista, uma referencia por linha.\n'
     'Exemplo:\n/referencias\n'
     'Titulo: ELMO 1.0: a helmet interface for CPAP and high-flow oxygen delivery\n'
-    'Lei federal 11892/2008\nCamara dos Deputados. PL 2630/2020\nSenado Federal. PL 2338/2023\n\n'
+    'Lei federal 11892/2008\nCamara dos Deputados. PL 2630/2020\nSenado Federal. PL 2338/2023\n'
+    'STF ADI 4449/AL\n\n'
     'O resultado inclui referencias ABNT, alteracoes, fontes e pendencias. '
     'Dados nao confirmados sao marcados para revisao. '
     'Para listas grandes, envie lotes menores ou use a interface web local.'
@@ -122,7 +123,7 @@ def register(ctx):
             'name': 'corrigir_referencias',
             'description': (
                 'Corrige referencias pela API local. Envie o texto original integral, '
-                'aceitando titulos, DOI, ISBN, leis federais e projetos de lei com casa legislativa. '
+                'aceitando titulos, DOI, ISBN, leis federais, projetos de lei e ADI do STF. '
                 'Nao adivinhe edicao, jurisdicao ou casa: preserve os pedidos de esclarecimento e candidatos. '
                 'uma referencia por linha. Reproduza abnt_full sem alterar referencias, '
                 'fontes ou avisos. Nunca afirme ausencia de erros. Se a API falhar, '

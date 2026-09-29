@@ -281,7 +281,8 @@ function renderResults(data) {
       c.catalog_url ? `Catálogo de edições: ${c.catalog_url}` : ''
     ].filter(Boolean).join(' | '));
     const reportText = (style) => [
-      `[${statusText.toUpperCase()}]`, r[style],
+      `[${statusText.toUpperCase()}]`,
+      ...(style === 'abnt' && r.citation ? [`Citação: ${r.citation}`, `Referência: ${r[style]}`] : [r[style]]),
       ...(r.issues || []).map(i => `Aviso${i.resolved ? ' (resolvido)' : ''}: ${issueMessage(i)}`),
       ...(r.sources || []).map(s => `Fonte: ${s.name} ${s.url}`),
       ...candidates.map(c => `Candidato: ${c}`)
@@ -336,6 +337,7 @@ function renderResults(data) {
               Copiar ABNT
             </button>
           </div>
+          ${r.citation ? `<div class="norm-box-content"><strong>Citação</strong><br>${escapeHtml(r.citation)}</div>` : ''}
           <div class="norm-box-content">${renderMarkdown(r.abnt)}</div>
         </div>
 
@@ -364,6 +366,7 @@ function renderResults(data) {
           Copiar ABNT
         </button>
       </div>
+      ${r.citation ? `<div class="norm-box-content"><strong>Citação</strong><br>${escapeHtml(r.citation)}</div>` : ''}
       <div class="norm-box-content" style="font-size: 0.96rem;">${renderMarkdown(r.abnt)}</div>
       
       <button class="expander-toggle">
