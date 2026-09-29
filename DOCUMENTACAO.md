@@ -70,7 +70,14 @@ fontes, e um bot criado no BotFather caso queira Telegram. A API usa Python
 3.11 dentro do container. Sem internet, a entrada pode ser formatada, mas
 nao recebe confirmacao bibliografica externa.
 
-No PowerShell, dentro da pasta clonada:
+No PowerShell, clone o repositorio e entre na pasta:
+
+```powershell
+git clone https://github.com/Telespy/IA-referencias.git
+Set-Location IA-referencias
+```
+
+Dentro da pasta clonada:
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -269,8 +276,8 @@ Para testar a integracao interna sem enviar mensagens ao Telegram, consulte
 `scripts/verify_telegram.py` e [GUIA_LOCAL.md](GUIA_LOCAL.md). Enviar uma
 mensagem real ao bot e a forma de testar o fluxo completo do Telegram.
 
-Para atualizar o instantaneo de localidades brasileiras, execute
-`powershell -ExecutionPolicy Bypass -File scripts/update_place_authority.ps1`.
+Para atualizar o instantaneo de localidades brasileiras no PowerShell 7,
+execute `pwsh -File scripts/update_place_authority.ps1`.
 O script consulta o IBGE, valida a quantidade e os IDs antes de substituir
 `data/brazilian_places.json`. Consulte [data/README.md](data/README.md) para
 a politica de normalizacao e origem dos dados.
