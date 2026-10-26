@@ -29,6 +29,24 @@ def authors_match(left, right):
 def verify_work_identity(user, fetched):
     if not fetched or not fetched.get('title'):
         return False
+
+    # DOI idêntico é um identificador forte. Não rejeite a obra apenas porque
+    # uma fonte (ex.: Crossref) cadastrou um título abreviado, desde que os
+    # demais sinais bibliográficos não entrem em conflito.
+    user_doi = str(user.get('doi') or '').casefold().strip()
+    fetched_doi = str(fetched.get('doi') or '').casefold().strip()
+    if user_doi and fetched_doi and user_doi == fetched_doi:
+        if user.get('item_type') and fetched.get('item_type') and user['item_type'] != fetched['item_type']:
+            return False
+        if user.get('year') and fetched.get('year') and str(user['year']) != str(fetched['year']):
+            return False
+        if user.get('authors') and fetched.get('authors') and not authors_match(user['authors'], fetched['authors']):
+            return False
+        for field in ('issue', 'page'):
+            if user.get(field) and fetched.get(field) and normalized(user[field]) != normalized(fetched[field]):
+                return False
+        return True
+
     if not user.get('title'):
         return True
     similarity = title_similarity(user['title'], fetched['title'])

@@ -186,7 +186,7 @@ O comando devolve o relatorio da API. O Hermes tambem registra a ferramenta
 `corrigir_referencias` para conversas em linguagem natural. Nesse segundo
 caminho, o modelo escolhe chamar a ferramenta e pode resumir a resposta;
 use o comando direto ou a interface web quando precisar do texto integral.
-Anexos PDF/DOCX/TXT nao sao lidos automaticamente pelo comando.
+Para extrair as referencias de um trabalho (DOCX, PDF, TXT ou MD), use o botao `Importar TCC` da interface web. Ele chama `POST /api/extract`, que localiza a secao REFERENCIAS, separa as entradas e cruza as citacoes do corpo do texto. Essa etapa nao consulta fontes; as entradas extraidas seguem para `/api/format` em lotes de 50.
 
 ## 5. Entradas aceitas e fontes
 
@@ -235,6 +235,8 @@ As consultas a legislacao usam dominios oficiais fixos. Falhas de conexao,
 respostas inconsistentes e correspondencias multiplas viram avisos.
 
 ## 6. API e contrato de resposta
+
+`POST /api/extract` recebe um arquivo `multipart/form-data` no campo `file` (ate 10 MB; `.docx`, `.pdf`, `.txt` ou `.md`). Devolve `referencias` (texto, DOI, ISBN, URLs, data de acesso e alertas), `citacoes` (citacoes sem entrada e entradas sem citacao) e `avisos`. Em DOCX, cada paragrafo da secao e uma entrada; em PDF e TXT as entradas sao inferidas por padroes de autor em caixa alta, e os alertas indicam os casos duvidosos.
 
 `POST /api/format` recebe JSON:
 

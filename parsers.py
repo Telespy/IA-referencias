@@ -205,14 +205,18 @@ def detect_reference_type(line: str, after_in: str = "") -> str:
     has_doi = bool(re.search(r'\bDOI:', line, re.I))
     has_pages = bool(re.search(r'\bp\.\s*[\d\s–-]+', line, re.I))
 
-    # Verifica se tem 'Cidade: Editora, Ano' (editora de livro/monografia)
+    # Sinais monográficos explícitos. Autor institucional, por si só, não define o tipo.
     line_no_urls = re.sub(r'https?://[^\s)]+', '', line)
     has_book_publisher = bool(re.search(r'[A-Za-zÁÉÍÓÚÂÊÔÃÕÇ\s]+:\s*[A-Za-zÁÉÍÓÚÂÊÔÃÕÇ0-9\s]+,\s*\d{4}', line_no_urls))
+    has_edition = bool(re.search(r'\b\d+\.\s*ed\.?', line, re.I))
+    has_isbn = bool(extract_isbn(line))
+    has_page_count = bool(re.search(r'\b\d+\s*(?:p|f|pág|páginas|folhas)\.?\s*$', line_no_urls, re.I))
 
     # 7. WEBSITE / PÁGINA DA INTERNET
-    # Se contém Portal, Site, Blog, ou "Disponível em:" sem ter editora de livro e sem volume/número de periódico
+    # "Disponível em/Acesso em" é um forte sinal de página eletrônica quando não
+    # há marcadores inequívocos de monografia (edição, ISBN ou extensão física).
     if re.search(r'\b(?:Portal|Site|Blog)\b', line, re.I) or "disponível em:" in line.lower() or "acesso em:" in line.lower():
-        if not has_book_publisher and not has_vol and not has_num:
+        if not has_vol and not has_num and not has_edition and not has_isbn and not has_page_count:
             return 'website'
 
     # 8. ARTIGO DE PERIÓDICO CIENTÍFICO (JOURNAL)
@@ -222,9 +226,6 @@ def detect_reference_type(line: str, after_in: str = "") -> str:
     # 9. LIVRO INTEIRO (MONOGRAFIA)
     has_publisher_colon = bool(re.search(r'\b[A-ZÁÉÍÓÚÂÊÔÃÕÇa-zá-ú\s-]+:\s*[^,]+,\s*\d{4}', line_no_urls)) or \
                            bool(re.search(r'\b[A-ZÁÉÍÓÚÂÊÔÃÕÇa-zá-ú\s-]+:\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇa-zá-ú\s\.]+$', line_no_urls))
-    has_edition = bool(re.search(r'\b\d+\.\s*ed\.?', line, re.I))
-    has_isbn = bool(extract_isbn(line))
-    has_page_count = bool(re.search(r'\b\d+\s*(?:p|f|pág|páginas|folhas)\.?\s*$', line_no_urls, re.I))
 
     if has_publisher_colon or has_edition or has_isbn or has_page_count:
         return 'book'
@@ -441,10 +442,10 @@ def _parse_proceedings(line: str, before_in: str, after_in: str, doi: str, isbn:
     y_match = re.search(r'\b(19\d\d|20\d\d)\b', after_in)
     event_year = y_match.group(1) if y_match else ''
     
-    num_match = re.search(r'\b(\d+\.|\d+º|[IVXLCDM]+\.)\s*', after_in)
+    num_match = re.search(r'\b(\d{1,3}\.|\d+º|[IVXLCDM]+\.)\s*', after_in)
     event_number = num_match.group(1).strip() if num_match else ''
     
-    proc_match = re.search(r'\b(Anais[^\.]*|Proceedings[^\.]*|Resumos[^\.]*|Atas[^\.]*)', after_in, re.I)
+    proc_match = re.search(r'\b((?:Anais|Proceedings|Resumos|Atas)(?:\s*\[\.\.\.\]|[^\.]*))', after_in, re.I)
     proceedings_title = proc_match.group(1).strip() if proc_match else 'Anais [...]'
     
     city = ''
@@ -561,7 +562,8 @@ def _parse_journal(line: str, doi: str, isbn: str, url: str, access_date: str) -
     pag_match = re.search(r'\bpp?\.\s*([\d\s–-]+)', rest, re.I)
     pag = pag_match.group(1).strip() if pag_match else ''
     if not pag:
-        elocation = re.search(r'\b(e\d{4,})\b', rest, re.I)
+        # e-locations podem ser curtas (ex.: e12) ou longas (ex.: e12345).
+        elocation = re.search(r'\b(e\d{2,})\b', rest, re.I)
         pag = elocation.group(1) if elocation else ''
     
     month_match = re.search(r'\b(jan\.|fev\.|mar\.|abr\.|maio|jun\.|jul\.|ago\.|set\.|out\.|nov\.|dez\.)(?:/(jan\.|fev\.|mar\.|abr\.|maio|jun\.|jul\.|ago\.|set\.|out\.|nov\.|dez\.))?', rest, re.I)
@@ -662,7 +664,7 @@ def _parse_book(line: str, isbn: str, doi: str, url: str, access_date: str) -> d
             title_raw = rest[:y_match.start()].strip()
 
     authors = parse_authors(authors_raw)
-    item_type = 'legal' if authors and authors[0].get('is_corporate') else 'book'
+    item_type = 'book'
     return {
         'item_type': item_type,
         'authors': authors,
@@ -680,7 +682,7 @@ def _parse_book(line: str, isbn: str, doi: str, url: str, access_date: str) -> d
 
 
 def _parse_newspaper(line: str, url: str, access_date: str) -> dict:
-    m = re.search(r'^([A-ZÁÉÍÓÚÂÊÔÃÕÇ\s,;.-]+?)\.\s*(.*?)\.\s*([A-ZÁÉÍÓÚa-z\s\.-]+?),\s*([A-ZÁÉÍÓÚa-z\s,-]+),\s*(\d+\s+[a-z]+\.\s*\d{4})\.\s*(Caderno[^\,]+|Seção[^\,]+)?,?\s*(?:p\.\s*([A-Z0-9-]+))?', line, re.I)
+    m = re.search(r'^([A-ZÁÉÍÓÚÂÊÔÃÕÇ\s,;.-]+?)\.\s*(.*?)\.\s*([^,]+),\s*([^,]+),\s*(\d+\s+[a-zç]+\.?\s*\d{4})\.\s*(Caderno[^,]+|Seção[^,]+)?,?\s*(?:p\.\s*([A-Z0-9-]+))?', line, re.I)
     if m:
         return {
             'item_type': 'newspaperArticle',
@@ -808,6 +810,13 @@ def parse_raw_citation_text(text: str) -> dict:
     if not line_no_id or line == isbn or line == doi:
         return {'doi': doi, 'isbn': isbn, 'url': url, 'access_date': access_date}
 
+    # Tipos documentais sem formatador ABNT próprio. Antes eram confundidos com livro;
+    # agora vão para revisão com a entrada original preservada.
+    if re.search(r'\bEntrevista\s+(?:concedida|cedida)\b', line, re.I):
+        return {'item_type': 'interview', 'title': line, 'doi': doi, 'isbn': isbn, 'url': url, 'access_date': access_date}
+    if re.search(r'\bSoftware\.?\s*$', line, re.I):
+        return {'item_type': 'software', 'title': line, 'doi': doi, 'isbn': isbn, 'url': url, 'access_date': access_date}
+
     case = parse_case_request(line)
     if case:
         case.update(url=url, access_date=access_date)
@@ -821,7 +830,9 @@ def parse_raw_citation_text(text: str) -> dict:
         before_in = parts[0].strip()
         after_in = parts[1].strip()
 
-    item_type = detect_reference_type(line, after_in=after_in)
+    # Classifique usando a entrada normalizada completa. O parser de campos usa
+    # `line` sem Disponível/Acesso, mas a classificação precisa enxergar esses sinais.
+    item_type = detect_reference_type(raw_line, after_in=after_in)
 
     if item_type in {'legislation', 'bill'}:
         request = parse_legal_request(line)
@@ -852,8 +863,12 @@ def parse_raw_citation_text(text: str) -> dict:
         return _parse_journal(line, doi, isbn, url, access_date)
     elif item_type == 'website':
         return _parse_website(line, url, access_date)
-    elif item_type in ('book', 'legal'):
+    elif item_type == 'book':
         return _parse_book(line, isbn, doi, url, access_date)
+    elif item_type == 'legal':
+        meta = _parse_book(line, isbn, doi, url, access_date)
+        meta['item_type'] = 'legal'
+        return meta
     else:
         return _parse_book(line, isbn, doi, url, access_date)
 

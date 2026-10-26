@@ -1,0 +1,64 @@
+{
+  "WIPO": {
+    "aliases": [
+      "WIPO",
+      "OMPI",
+      "Organização Mundial da Propriedade Intelectual",
+      "World Intellectual Property Organization"
+    ],
+    "corporate_author": "WIPO",
+    "publisher": "WIPO",
+    "city": "Genebra",
+    "authority_url": "https://www.wipo.int/about-wipo/en/"
+  },
+  "O Globo": {
+    "aliases": [
+      "O Globo",
+      "oglobo.globo.com"
+    ],
+    "newspaper": "O Globo",
+    "city": "Rio de Janeiro",
+    "authority_url": "https://oglobo.globo.com/"
+  },
+  "FGV": {
+    "aliases": [
+      "Fundação Getulio Vargas",
+      "FGV",
+      "repositorio.fgv.br"
+    ],
+    "city": "Rio de Janeiro",
+    "authority_url": "https://portal.fgv.br/"
+  },
+  "IBGE": {
+    "aliases": [
+      "IBGE",
+      "Instituto Brasileiro de Geografia e Estatística"
+    ],
+    "corporate_author": "INSTITUTO BRASILEIRO DE GEOGRAFIA E ESTATÍSTICA",
+    "publisher": "IBGE",
+    "city": "Rio de Janeiro",
+    "authority_url": "https://www.ibge.gov.br/"
+  },
+  "OMS": {
+    "aliases": [
+      "OMS",
+      "WHO",
+      "Organização Mundial da Saúde",
+      "World Health Organization"
+    ],
+    "corporate_author": "ORGANIZAÇÃO MUNDIAL DA SAÚDE",
+    "publisher": "OMS",
+    "city": "Genebra",
+    "authority_url": "https://www.who.int/"
+  },
+  "UFPR": {
+    "aliases": [
+      "UFPR",
+      "Universidade Federal do Paraná"
+    ],
+    "corporate_author": "UNIVERSIDADE FEDERAL DO PARANÁ",
+    "city": "Curitiba",
+    "authority_url": "https://www.ufpr.br/",
+    "repository_base": "https://acervodigital.ufpr.br/handle/"
+  }
+}

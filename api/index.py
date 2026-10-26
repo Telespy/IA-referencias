@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -16,8 +16,10 @@ if str(ROOT_DIR) not in sys.path:
 
 from main import process_reference_line
 from correction import reference_report
+from reference_extractor import MAX_DOCUMENT_BYTES, extract_references
 
 MAX_PAYLOAD_BYTES = 512 * 1024
+MAX_UPLOAD_REQUEST_BYTES = MAX_DOCUMENT_BYTES + 64 * 1024
 MAX_REFERENCES_COUNT = 50
 MAX_LINE_LENGTH = 4000
 _rate_limits = {}
@@ -29,11 +31,14 @@ app = FastAPI(title='Brain Format API', version='3.0.0', docs_url='/api/docs',
 @app.middleware('http')
 async def limits_and_headers(request: Request, call_next):
     if request.method == 'POST':
+        is_upload = request.url.path == '/api/extract'
+        limit = MAX_UPLOAD_REQUEST_BYTES if is_upload else MAX_PAYLOAD_BYTES
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > MAX_PAYLOAD_BYTES:
-                return JSONResponse(status_code=413, content={'detail': 'Limite de 512 KB excedido.'})
+            if len(body) > limit:
+                message = 'Limite de 10 MB excedido.' if is_upload else 'Limite de 512 KB excedido.'
+                return JSONResponse(status_code=413, content={'detail': message})
         request._body = bytes(body)
     if request.url.path == '/api/format':
         now = time.monotonic()
@@ -121,6 +126,16 @@ def _process(line, online):
         return {'raw': line, 'item_type': 'unknown', 'item_type_label': 'Nao identificado',
                 'abnt': line, 'apa': line, 'status': 'error', 'approved': False,
                 'warnings': [message], 'issues': [{'code': 'PROCESSING_ERROR', 'message': message, 'severity': 'error'}]}
+
+
+@app.post('/api/extract')
+def extract_document_references(file: UploadFile = File(...)):
+    """Extrai as entradas da seção de referências de um DOCX, PDF, TXT ou MD. Não consulta fontes externas."""
+    content = file.file.read(MAX_DOCUMENT_BYTES + 1)
+    try:
+        return extract_references(file.filename or '', content)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 
 @app.post('/api/format', response_model=FormatResponse)

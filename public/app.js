@@ -1,484 +1,285 @@
-/**
- * Brain Format — Frontend Application Logic
- * Manipulação de UI, chamadas assíncronas para a API FastAPI e exportações
- */
-
-// ==========================================
-// Gerenciamento de Tema (Dark / Light)
-// ==========================================
-const themeToggle = document.getElementById('themeToggle');
-const htmlEl = document.documentElement;
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('brain_format_theme') || 'dark';
-  htmlEl.setAttribute('data-theme', savedTheme);
-}
-
-themeToggle.addEventListener('click', () => {
-  const currentTheme = htmlEl.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  htmlEl.setAttribute('data-theme', newTheme);
-  localStorage.setItem('brain_format_theme', newTheme);
-});
-
-initTheme();
-
-// ==========================================
-// Exemplos Demonstrativos
-// ==========================================
-const SAMPLE_REFERENCES = `WOODWARD, Kathryn. Identidade e diferença: uma introdução teórica e conceitual. In: SILVA, Tomaz Tadeu da (org.). Identidade e diferença: a perspectiva dos estudos culturais. Petrópolis: Vozes, 2000. p. 7-72.
-CARNEIRO, Aparecida Sueli. A construção do outro como não-ser como fundamento do ser. 2005. Tese (Doutorado) – Universidade de São Paulo, São Paulo, 2005.
-SAVIANI, Dermeval. O choque teórico da politecnia. Trabalho, Educação e Saúde, Rio de Janeiro, v. 1, n. 1, p. 131-152, 2003.
-BRASIL. Lei nº 11.892, de 29 de dezembro de 2008. Institui a Rede Federal de Educação Profissional. Brasília, DF: Presidência da República, 2008.
-BAUMAN, Zygmunt. Modernidade líquida. Rio de Janeiro: Jorge Zahar Ed.`;
-
-const referenceInput = document.getElementById('referenceInput');
-const lineCount = document.getElementById('lineCount');
-const btnExample = document.getElementById('btnExample');
-const btnClear = document.getElementById('btnClear');
-const btnFormat = document.getElementById('btnFormat');
-
-const loadingState = document.getElementById('loadingState');
-const errorBanner = document.getElementById('errorBanner');
-const errorMessage = document.getElementById('errorMessage');
-const resultsSection = document.getElementById('resultsSection');
-const resultsCount = document.getElementById('resultsCount');
-
-// Botões de Download
-const btnDownloadComp = document.getElementById('btnDownloadComp');
-const btnDownloadABNT = document.getElementById('btnDownloadABNT');
-const btnDownloadAPA = document.getElementById('btnDownloadAPA');
-
-// Botões de Cópia Global
-const btnCopyAllABNT = document.getElementById('btnCopyAllABNT');
-const btnCopyAllAPA = document.getElementById('btnCopyAllAPA');
-
-// Listas de Cartões
-const compList = document.getElementById('compList');
-const abntList = document.getElementById('abntList');
-const apaList = document.getElementById('apaList');
-
-// Badges das Abas
-const badgeComp = document.getElementById('badgeComp');
-const badgeABNT = document.getElementById('badgeABNT');
-const badgeAPA = document.getElementById('badgeAPA');
-
-// Variáveis de Estado
+const $ = id => document.getElementById(id);
+const referenceInput = $('referenceInput');
+const lineCount = $('lineCount');
+const btnFormat = $('btnFormat');
+const resultsSection = $('resultsSection');
+const loadingState = $('loadingState');
+const errorBanner = $('errorBanner');
+const errorMessage = $('errorMessage');
+const compList = $('compList');
+const abntList = $('abntList');
+const apaList = $('apaList');
 let currentData = null;
 
-// ==========================================
-// Contagem de Linhas
-// ==========================================
-function updateLineCounter() {
-  const text = referenceInput.value;
-  const lines = text.split('\n').filter(l => l.trim().length > 0);
-  lineCount.textContent = `${lines.length} ${lines.length === 1 ? 'referência' : 'referências'}`;
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-referenceInput.addEventListener('input', updateLineCounter);
+function safeUrl(url) {
+  try {
+    const u = new URL(url);
+    return ['http:','https:'].includes(u.protocol) ? u.href : '';
+  } catch { return ''; }
+}
 
-// Carregar Exemplos
-btnExample.addEventListener('click', () => {
-  referenceInput.value = SAMPLE_REFERENCES;
-  updateLineCounter();
-  referenceInput.focus();
-});
-
-// Limpar Campo
-btnClear.addEventListener('click', () => {
-  referenceInput.value = '';
-  updateLineCounter();
-  resultsSection.classList.add('hidden');
-  errorBanner.classList.add('hidden');
-  referenceInput.focus();
-});
-
-// Atalho Ctrl + Enter para formatar
-referenceInput.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    btnFormat.click();
-  }
-});
-
-// ==========================================
-// Alternância de Abas
-// ==========================================
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabPanes = document.querySelectorAll('.tab-pane');
-
-tabButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    tabButtons.forEach(b => b.classList.remove('active'));
-    tabPanes.forEach(p => p.classList.remove('active'));
-
-    btn.classList.add('active');
-    const targetId = btn.getAttribute('data-tab');
-    document.getElementById(targetId).classList.add('active');
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = escapeHtml(md);
+  html = html.replace(/\[([^\[\]\n]*)\]\((https?:\/\/[^\s<>"']+)\)/g, (_, label, url) => {
+    const safe = safeUrl(url);
+    return safe ? '<a href="' + escapeHtml(safe) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>' : label;
   });
-});
-
-// ==========================================
-// Renderizador Seguro de Markdown Básico
-// ==========================================
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  return html;
 }
 
 function correctionValue(value) {
   if (value === null) return 'ausente na fonte consultada';
-  if (Array.isArray(value) && value.every(author => author && typeof author === 'object')) {
-    return value.map(author => [author.family, author.given].filter(Boolean).join(', ')).join('; ');
+  if (Array.isArray(value) && value.every(a => a && typeof a === 'object')) {
+    return value.map(a => [a.family, a.given].filter(Boolean).join(', ')).join('; ');
   }
   return String(value ?? '');
 }
 
 function issueMessage(issue) {
-  return [issue.message, issue.resolution].filter(Boolean).join(' ');
+  return [issue?.message, issue?.resolution].filter(Boolean).join(' ');
 }
 
-function renderMarkdown(md) {
-  if (!md) return '';
-  // Escapa caracteres HTML
-  let html = escapeHtml(md);
-
-  // Converte [texto](link)
-  html = html.replace(/\[([^\[\]\n]*)\]\((https?:\/\/[^\s<>]*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">$1</a>');
-
-  // Converte negrito **texto**
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Converte itálico *texto*
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-  return html;
-}
-
-// ==========================================
-// Toasts de Notificação
-// ==========================================
 function showToast(message) {
-  const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
-    <span>${escapeHtml(message)}</span>
-  `;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.remove();
-  }, 3000);
+  toast.textContent = message;
+  $('toastContainer').appendChild(toast);
+  setTimeout(() => toast.remove(), 2400);
 }
 
-// ==========================================
-// Cópia para Área de Transferência
-// ==========================================
-async function copyToClipboard(text, successMsg = 'Copiado para a área de transferência!') {
+async function copyToClipboard(text, message='Copiado para a área de transferência') {
   try {
     await navigator.clipboard.writeText(text);
-    showToast(successMsg);
-  } catch (err) {
-    // Fallback para navegadores sem permissão de clipboard direta
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand('copy');
-    textArea.remove();
-    showToast(successMsg);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
+  showToast(message);
 }
 
-// ==========================================
-// Download de Arquivos Markdown (.md)
-// ==========================================
-function downloadMarkdownFile(filename, content) {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+function downloadFile(filename, content) {
+  const blob = new Blob([content], {type:'text/markdown;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast(`Download de ${filename} concluído!`);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
-// ==========================================
-// Envio e Processamento via API
-// ==========================================
-btnFormat.addEventListener('click', async () => {
+function currentMode() {
+  return document.querySelector('input[name="inputMode"]:checked')?.value || 'lines';
+}
+
+const BATCH_SIZE = 50;
+const docFile = $('docFile');
+const docInfo = $('docInfo');
+const batchPicker = $('batchPicker');
+const batchSelect = $('batchSelect');
+
+function referenceItems() {
   const text = referenceInput.value.trim();
-  if (!text) {
-    errorBanner.classList.remove('hidden');
-    errorMessage.textContent = 'Por favor, insira pelo menos uma referência para formatar.';
-    return;
+  if (!text) return [];
+  return currentMode() === 'blocks'
+    ? text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean)
+    : text.split(/\n/).map(x => x.trim()).filter(Boolean);
+}
+
+function countReferences() {
+  return referenceItems().length;
+}
+
+function updateBatchPicker(n) {
+  const batches = Math.ceil(n / BATCH_SIZE);
+  batchPicker.classList.toggle('hidden', batches <= 1);
+  if (batches <= 1) return;
+  const selected = batchSelect.value;
+  batchSelect.innerHTML = Array.from({length: batches}, (_, k) => {
+    const first = k * BATCH_SIZE + 1, last = Math.min(n, (k + 1) * BATCH_SIZE);
+    return '<option value="' + k + '">Lote ' + (k + 1) + ': itens ' + first + '–' + last + '</option>';
+  }).join('');
+  if (selected && Number(selected) < batches) batchSelect.value = selected;
+}
+
+function updateCounter() {
+  const n = countReferences();
+  lineCount.textContent = n + ' ' + (n === 1 ? 'referência' : 'referências');
+  updateBatchPicker(n);
+}
+
+function syncModeUI() {
+  document.querySelectorAll('.mode-option').forEach(label => {
+    label.classList.toggle('active', label.querySelector('input')?.checked);
+  });
+  updateCounter();
+}
+
+document.querySelectorAll('input[name="inputMode"]').forEach(el => el.addEventListener('change', syncModeUI));
+referenceInput.addEventListener('input', updateCounter);
+
+const SAMPLE = `AFP. Indústria da música está ameaçada por bandas geradas por IA: 'desafio incomparável'. O Globo, 30 jul. 2025. Disponível em: https://oglobo.globo.com/cultura/musica/noticia/2025/07/30/industria-da-musica-esta-ameacada-por-bandas-geradas-por-ia-desafio-incomparavel.ghtml. Acesso em: 16 ago. 2026.
+WIPO. O que é propriedade intelectual? WIPO, 2021.
+SAVIANI, Dermeval. O choque teórico da politecnia. Trabalho, Educação e Saúde, Rio de Janeiro, v. 1, n. 1, p. 131-152, 2003.`;
+
+$('btnExample').addEventListener('click', () => { referenceInput.value = SAMPLE; updateCounter(); referenceInput.focus(); });
+$('btnClear').addEventListener('click', () => { referenceInput.value=''; updateCounter(); resultsSection.classList.add('hidden'); errorBanner.classList.add('hidden'); referenceInput.focus(); });
+referenceInput.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); btnFormat.click(); } });
+
+const htmlEl = document.documentElement;
+function initTheme() { htmlEl.dataset.theme = localStorage.getItem('ref_theme') || 'light'; }
+$('themeToggle').addEventListener('click', () => {
+  htmlEl.dataset.theme = htmlEl.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('ref_theme', htmlEl.dataset.theme);
+});
+initTheme();
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active'); $(btn.dataset.tab).classList.add('active');
+}));
+
+async function checkHealth() {
+  const el = $('apiStatus');
+  try {
+    const r = await fetch('/api/health', {cache:'no-store'});
+    if (!r.ok) throw new Error();
+    el.className='api-status online'; el.querySelector('.status-text').textContent='Servidor online';
+  } catch {
+    el.className='api-status offline'; el.querySelector('.status-text').textContent='Servidor offline';
   }
+}
+checkHealth();
 
-  errorBanner.classList.add('hidden');
-  loadingState.classList.remove('hidden');
-  resultsSection.classList.add('hidden');
-  btnFormat.disabled = true;
+docFile.addEventListener('change', async () => {
+  const file = docFile.files[0];
+  if (!file) return;
+  errorBanner.classList.add('hidden'); docInfo.textContent = 'Lendo ' + file.name + '…';
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const response = await fetch('/api/extract', {method:'POST', body:form});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || 'Falha ao ler o documento.');
+    referenceInput.value = data.referencias.map(x => x.texto).join('\n\n');
+    document.querySelector('input[name="inputMode"][value="blocks"]').checked = true;
+    syncModeUI();
+    const c = data.citacoes;
+    docInfo.textContent = data.total + ' entradas · ' + c.total + ' citações no texto · ' +
+      c.sem_referencia.length + ' sem entrada · ' + c.referencias_sem_citacao.length + ' entradas sem citação. ' +
+      (data.avisos || []).join(' ');
+  } catch(err) {
+    docInfo.textContent = '';
+    errorMessage.textContent = err.message || 'Falha ao ler o documento.'; errorBanner.classList.remove('hidden');
+  } finally { docFile.value = ''; }
+});
 
+btnFormat.addEventListener('click', async () => {
+  const items = referenceItems();
+  if (!items.length) { errorMessage.textContent='Insira pelo menos uma referência.'; errorBanner.classList.remove('hidden'); return; }
+  let text = referenceInput.value.trim(), format = currentMode();
+  if (items.length > BATCH_SIZE) {
+    const batch = Number(batchSelect.value) || 0;
+    text = items.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE).join('\n\n');
+    format = 'blocks';
+  }
+  errorBanner.classList.add('hidden'); resultsSection.classList.add('hidden'); loadingState.classList.remove('hidden'); btnFormat.disabled=true;
   try {
     const response = await fetch('/api/format', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ text })
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text, online:$('onlineToggle').checked, input_format:format})
     });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.detail || errData.error || `Erro HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    currentData = data;
-    renderResults(data);
-  } catch (err) {
-    errorBanner.classList.remove('hidden');
-    errorMessage.textContent = err.message || 'Falha ao conectar ao servidor de formatação.';
-  } finally {
-    loadingState.classList.add('hidden');
-    btnFormat.disabled = false;
-  }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || 'Falha ao processar o lote.');
+    currentData=data; renderResults(data); resultsSection.classList.remove('hidden'); resultsSection.scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(err) {
+    errorMessage.textContent=err.message || 'Falha ao conectar ao servidor.'; errorBanner.classList.remove('hidden');
+  } finally { loadingState.classList.add('hidden'); btnFormat.disabled=false; }
 });
 
-// ==========================================
-// Renderização Dinâmica dos Resultados
-// ==========================================
+function statusLabel(r) {
+  return r.status === 'verified' ? 'Verificada' : r.status === 'error' ? 'Erro' : 'Revisão necessária';
+}
+
+function sourceHtml(s) {
+  const url = safeUrl(s?.url || '');
+  return '<div class="source-row"><strong>' + escapeHtml(s?.name || 'Fonte') + '</strong>' +
+    (url ? ' · <a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(url) + '</a>' : '') + '</div>';
+}
+
+function provenanceHtml(prov) {
+  const entries = Object.entries(prov || {});
+  if (!entries.length) return '<div class="source-row">Nenhuma proveniência registrada.</div>';
+  return '<table class="provenance-table"><thead><tr><th>Campo</th><th>Origem</th><th>Verificado</th><th>Confiança</th></tr></thead><tbody>' +
+    entries.map(([field,p]) => '<tr><td>' + escapeHtml(field) + '</td><td>' + escapeHtml(p?.source || 'entrada') + '</td><td>' + (p?.verified ? 'sim' : 'não') + '</td><td class="confidence">' + (typeof p?.confidence === 'number' ? Math.round(p.confidence*100)+'%' : '—') + '</td></tr>').join('') +
+    '</tbody></table>';
+}
+
+function reportText(r, style) {
+  const lines = ['[' + statusLabel(r).toUpperCase() + ']', r[style] || r.raw];
+  (r.issues || []).forEach(i => lines.push('Aviso: ' + issueMessage(i)));
+  (r.sources || []).forEach(s => lines.push('Fonte: ' + s.name + (s.url ? ' ' + s.url : '')));
+  return lines.join('\n');
+}
+
+function detailsHtml(r) {
+  const issues = r.issues || [];
+  const corrections = r.corrections || [];
+  const missing = r.missing_fields || [];
+  const sourceBlock = (r.sources || []).map(sourceHtml).join('') || '<div class="source-row">Nenhuma fonte externa registrada.</div>';
+  const listItems = [
+    ...missing.map(x => 'Pendente: ' + x),
+    ...issues.filter(x => x.severity !== 'info').map(issueMessage),
+    ...corrections.map(c => 'Correção em ' + c.field + ': ' + correctionValue(c.before) + ' → ' + correctionValue(c.after))
+  ];
+  return '<div class="detail-grid">' +
+    '<div class="detail-box"><h4>Revisão e correções</h4>' + (listItems.length ? '<ul class="detail-list">' + listItems.map(x => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>' : '<div class="source-row">Nenhuma pendência bloqueante.</div>') + '</div>' +
+    '<div class="detail-box"><h4>Fontes consultadas</h4>' + sourceBlock + '</div>' +
+    '</div><div class="detail-box" style="margin-top:10px"><h4>Proveniência por campo</h4>' + provenanceHtml(r.provenance) + '</div>';
+}
+
+function makeDetailedCard(r, idx) {
+  const el=document.createElement('article'); el.className='reference-card';
+  el.innerHTML='<div class="reference-head"><div class="ref-identity"><span class="index">#'+(idx+1)+'</span><span class="type-pill">'+escapeHtml(r.item_type_label || r.item_type)+'</span></div><span class="status-pill '+escapeHtml(r.status)+'">'+escapeHtml(statusLabel(r))+'</span></div>' +
+    '<div class="reference-body"><div class="original-box"><span class="box-label">Entrada original</span><div class="original-text">'+escapeHtml(r.raw)+'</div></div>' +
+    '<div class="norm-grid"><div class="norm-card abnt"><div class="norm-head"><strong>ABNT</strong><button class="button mini secondary copy-btn" data-copy="'+encodeURIComponent(reportText(r,'abnt'))+'">Copiar</button></div><div class="norm-text">'+renderMarkdown(r.abnt)+'</div></div>' +
+    '<div class="norm-card apa"><div class="norm-head"><strong>APA</strong><button class="button mini secondary copy-btn" data-copy="'+encodeURIComponent(reportText(r,'apa'))+'">Copiar</button></div><div class="norm-text">'+renderMarkdown(r.apa)+'</div></div></div>' +
+    detailsHtml(r) + '</div>';
+  return el;
+}
+
+function makeSimpleCard(r, style) {
+  const el=document.createElement('article'); el.className='simple-card';
+  el.innerHTML='<div class="simple-head"><div><span class="type-pill">'+escapeHtml(r.item_type_label || r.item_type)+'</span> <span class="status-pill '+escapeHtml(r.status)+'">'+escapeHtml(statusLabel(r))+'</span></div><button class="button mini secondary copy-btn" data-copy="'+encodeURIComponent(reportText(r,style))+'">Copiar</button></div>' +
+    '<div class="simple-text">'+renderMarkdown(r[style])+'</div><button class="expander-toggle" type="button">Ver original</button><div class="expander-content hidden">'+escapeHtml(r.raw)+'</div>';
+  return el;
+}
+
+function bindDynamic() {
+  document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', () => copyToClipboard(decodeURIComponent(btn.dataset.copy || ''))));
+  document.querySelectorAll('.expander-toggle').forEach(btn => btn.addEventListener('click', () => btn.nextElementSibling?.classList.toggle('hidden')));
+}
+
 function renderResults(data) {
-  const results = data.results || [];
-  resultsCount.textContent = `${results.length} ${results.length === 1 ? 'referência processada' : 'referências processadas'}`;
-
-  badgeComp.textContent = results.length;
-  badgeABNT.textContent = results.length;
-  badgeAPA.textContent = results.length;
-
-  compList.innerHTML = '';
-  abntList.innerHTML = '';
-  apaList.innerHTML = '';
-
-  results.forEach((r, idx) => {
-    const num = idx + 1;
-
-    // --- 1. Aba Comparativo Lado a Lado ---
-    const compCard = document.createElement('div');
-    compCard.className = 'card-item';
-
-    const statusText = r.approved ? 'Conferida nas fontes' : 'Revisão necessária';
-    const candidates = (r.candidates || []).map(c => [
-      c.title, correctionValue(c.authors || []), c.year,
-      c.doi ? `DOI: ${c.doi}` : '', c.isbn ? `ISBN: ${c.isbn}` : '',
-      c.catalog_url ? `Catálogo de edições: ${c.catalog_url}` : ''
-    ].filter(Boolean).join(' | '));
-    const reportText = (style) => [
-      `[${statusText.toUpperCase()}]`,
-      ...(style === 'abnt' && r.citation ? [`Citação: ${r.citation}`, `Referência: ${r[style]}`] : [r[style]]),
-      ...(r.issues || []).map(i => `Aviso${i.resolved ? ' (resolvido)' : ''}: ${issueMessage(i)}`),
-      ...(r.sources || []).map(s => `Fonte: ${s.name} ${s.url}`),
-      ...candidates.map(c => `Candidato: ${c}`)
-    ].join('\n');
-    let missingHtml = `<div class="missing-box"><strong>${statusText}</strong>`;
-    missingHtml += `<ul class="missing-list">${(r.issues || []).map(i =>
-      `<li>${escapeHtml(issueMessage(i))}${i.resolved ? ' (resolvido)' : ''}</li>`).join('')}</ul>`;
-    if (r.corrections?.length) {
-      missingHtml += `<ul class="missing-list">${r.corrections.map(c =>
-        `<li>Alteração em ${escapeHtml(c.field)}: ${escapeHtml(correctionValue(c.before))} → ${escapeHtml(correctionValue(c.after))}</li>`).join('')}</ul>`;
-    }
-    missingHtml += (r.sources || []).map(s => `<div>Fonte: ${escapeHtml(s.name)} ${escapeHtml(s.url)}</div>`).join('');
-    if (candidates.length) {
-      missingHtml += `<ul class="missing-list">${candidates.map(c => `<li>Candidato: ${escapeHtml(c)}</li>`).join('')}</ul>`;
-    }
-    missingHtml += '</div>';
-    if (r.missing_fields && r.missing_fields.length > 0) {
-      missingHtml += `
-        <div class="missing-box">
-          <div class="missing-title">
-            <span>⚠️</span>
-            <span>Elementos não encontrados para compor esta referência:</span>
-          </div>
-          <ul class="missing-list">
-            ${r.missing_fields.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
-          </ul>
-        </div>
-      `;
-    }
-
-    compCard.innerHTML = `
-      <div class="card-header">
-        <span class="card-index">#${num}</span>
-        <span class="badge-type">🏷️ ${escapeHtml(r.item_type_label)}</span>
-      </div>
-
-      <!-- Versão Original (Antes da Correção) -->
-      <div class="box-original">
-        <div class="box-original-title">
-          <span>📝</span>
-          <span>Versão Original (Antes da Correção):</span>
-        </div>
-        <div class="box-original-text">${escapeHtml(r.raw)}</div>
-      </div>
-
-      <!-- Comparativo Colunas ABNT vs APA -->
-      <div class="comp-grid">
-        <div class="norm-box norm-box-abnt">
-          <div class="norm-box-header">
-            <span class="norm-box-label">ABNT (NBR 6023)</span>
-            <button class="btn btn-sm btn-outline copy-btn" data-copy="${encodeURIComponent(reportText('abnt'))}">
-              Copiar ABNT
-            </button>
-          </div>
-          ${r.citation ? `<div class="norm-box-content"><strong>Citação</strong><br>${escapeHtml(r.citation)}</div>` : ''}
-          <div class="norm-box-content">${renderMarkdown(r.abnt)}</div>
-        </div>
-
-        <div class="norm-box norm-box-apa">
-          <div class="norm-box-header">
-            <span class="norm-box-label">APA (7ª Edição)</span>
-            <button class="btn btn-sm btn-outline copy-btn" data-copy="${encodeURIComponent(reportText('apa'))}">
-              Copiar APA
-            </button>
-          </div>
-          <div class="norm-box-content">${renderMarkdown(r.apa)}</div>
-        </div>
-      </div>
-
-      ${missingHtml}
-    `;
-    compList.appendChild(compCard);
-
-    // --- 2. Aba ABNT ---
-    const abntCard = document.createElement('div');
-    abntCard.className = 'card-item';
-    abntCard.innerHTML = `
-      <div class="card-header">
-        <span class="badge-type">🏷️ ${escapeHtml(r.item_type_label)}</span>
-        <button class="btn btn-sm btn-outline copy-btn" data-copy="${encodeURIComponent(reportText('abnt'))}">
-          Copiar ABNT
-        </button>
-      </div>
-      ${r.citation ? `<div class="norm-box-content"><strong>Citação</strong><br>${escapeHtml(r.citation)}</div>` : ''}
-      <div class="norm-box-content" style="font-size: 0.96rem;">${renderMarkdown(r.abnt)}</div>
-      
-      <button class="expander-toggle">
-        <span>📝</span>
-        <span>Ver referência antes da correção</span>
-      </button>
-      <div class="expander-content hidden">${escapeHtml(r.raw)}</div>
-
-      ${missingHtml}
-    `;
-    abntList.appendChild(abntCard);
-
-    // --- 3. Aba APA ---
-    const apaCard = document.createElement('div');
-    apaCard.className = 'card-item';
-    apaCard.innerHTML = `
-      <div class="card-header">
-        <span class="badge-type">🏷️ ${escapeHtml(r.item_type_label)}</span>
-        <button class="btn btn-sm btn-outline copy-btn" data-copy="${encodeURIComponent(reportText('apa'))}">
-          Copiar APA
-        </button>
-      </div>
-      <div class="norm-box-content" style="font-size: 0.96rem;">${renderMarkdown(r.apa)}</div>
-      
-      <button class="expander-toggle">
-        <span>📝</span>
-        <span>Ver referência antes da correção</span>
-      </button>
-      <div class="expander-content hidden">${escapeHtml(r.raw)}</div>
-
-      ${missingHtml}
-    `;
-    apaList.appendChild(apaCard);
-  });
-
-  // Ativa listeners de cópia individual
-  document.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const textToCopy = decodeURIComponent(btn.getAttribute('data-copy'));
-      copyToClipboard(textToCopy);
-    });
-  });
-
-  // Ativa listeners de alternância dos sanfonados (expander)
-  document.querySelectorAll('.expander-toggle').forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const content = toggle.nextElementSibling;
-      content.classList.toggle('hidden');
-    });
-  });
-
+  const results=data.results || [];
+  $('resultsCount').textContent=results.length+' '+(results.length===1?'referência processada':'referências processadas');
+  const summary=data.summary || {};
+  $('sumVerified').textContent=summary.verified || 0; $('sumReview').textContent=summary.needs_review || 0; $('sumError').textContent=summary.error || 0;
+  $('badgeComp').textContent=results.length; $('badgeABNT').textContent=results.length; $('badgeAPA').textContent=results.length;
+  compList.innerHTML=''; abntList.innerHTML=''; apaList.innerHTML='';
+  results.forEach((r,i) => { compList.appendChild(makeDetailedCard(r,i)); abntList.appendChild(makeSimpleCard(r,'abnt')); apaList.appendChild(makeSimpleCard(r,'apa')); });
+  bindDynamic();
   resultsSection.classList.remove('hidden');
-  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ==========================================
-// Ações Globais de Cópia e Download
-// ==========================================
-btnCopyAllABNT.addEventListener('click', () => {
-  if (currentData && currentData.abnt_full) {
-    copyToClipboard(currentData.abnt_full, 'Lista ABNT completa copiada!');
-  }
-});
+$('btnCopyAllABNT').addEventListener('click', () => currentData && copyToClipboard(currentData.results.map(r=>r.abnt).join('\n\n'),'Lista ABNT copiada'));
+$('btnCopyAllAPA').addEventListener('click', () => currentData && copyToClipboard(currentData.results.map(r=>r.apa).join('\n\n'),'Lista APA copiada'));
+$('btnDownloadABNT').addEventListener('click', () => currentData && downloadFile('referencias_ABNT.md', currentData.abnt_full || ''));
+$('btnDownloadAPA').addEventListener('click', () => currentData && downloadFile('referencias_APA.md', currentData.apa_full || ''));
+$('btnDownloadComp').addEventListener('click', () => currentData && downloadFile('relatorio_referencias.md', currentData.comp_full || ''));
 
-btnCopyAllAPA.addEventListener('click', () => {
-  if (currentData && currentData.apa_full) {
-    copyToClipboard(currentData.apa_full, 'Lista APA completa copiada!');
-  }
-});
-
-btnDownloadComp.addEventListener('click', () => {
-  if (currentData && currentData.comp_full) {
-    downloadMarkdownFile('referencias_comparativo.md', currentData.comp_full);
-  }
-});
-
-btnDownloadABNT.addEventListener('click', () => {
-  if (currentData && currentData.abnt_full) {
-    downloadMarkdownFile('referencias_ABNT.md', currentData.abnt_full);
-  }
-});
-
-btnDownloadAPA.addEventListener('click', () => {
-  if (currentData && currentData.apa_full) {
-    downloadMarkdownFile('referencias_APA.md', currentData.apa_full);
-  }
-});
-
-// ==========================================
-// Healthcheck Inicial
-// ==========================================
-async function checkApiHealth() {
-  try {
-    const res = await fetch('/api/health');
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
-    if (res.ok) {
-      statusDot.style.background = '#10b981';
-      statusDot.style.boxShadow = '0 0 8px #10b981';
-      statusText.textContent = 'Online';
-    } else {
-      statusDot.style.background = '#f59e0b';
-      statusText.textContent = 'Alerta';
-    }
-  } catch (e) {
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
-    if (statusDot && statusText) {
-      statusDot.style.background = '#ef4444';
-      statusText.textContent = 'Offline';
-    }
-  }
-}
-
-checkApiHealth();
+syncModeUI();

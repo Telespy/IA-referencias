@@ -5,7 +5,8 @@ from publication_places import normalize_place
 
 PROPER_NOUNS = {
     "brasil", "brasília", "rio", "janeiro", "são", "paulo", "natal", "niterói",
-    "holos", "apodi", "consepex", "isaac", "asimov"
+    "holos", "apodi", "consepex", "isaac", "asimov",
+    "google", "youtube", "python", "windows", "linux", "excel", "github", "facebook", "instagram", "spotify", "netflix"
 }
 
 # Siglas, acrônimos e numerais romanos: devem permanecer 100% em maiúsculas
@@ -14,7 +15,8 @@ ACRONYMS = {
     "ifrn", "ufrn", "usp", "unicamp", "unesp", "uff", "ufrj",
     "xxi", "xx", "xix", "xviii", "xvii", "xvi", "xv", "xiv", "xiii", "xii", "xi",
     "dna", "rna", "covid-19", "covid", "ieee", "usa", "uk", "doi",
-    "abnt", "tcc", "hiv", "aids", "gpu", "gpus", "cpu", "cpus", "ai", "ml", "pnas", "elmo", "cpap"
+    "abnt", "tcc", "hiv", "aids", "gpu", "gpus", "cpu", "cpus", "ai", "ml", "pnas", "elmo", "cpap",
+    "nbr", "iso", "iec", "ibge", "cnpq", "capes", "ufpb", "ufpe", "sus", "ong", "onu", "oms", "pib", "inep", "mec", "fapesp"
 }
 
 SPECIAL_TERMS = {
@@ -24,6 +26,11 @@ SPECIAL_TERMS = {
 }
 
 NAME_PARTICLES = {"da", "de", "del", "der", "di", "do", "dos", "das", "la", "le", "van", "von"}
+
+# Palavras funcionais ignoradas ao medir a caixa de um título.
+FUNCTION_WORDS = {"a", "o", "as", "os", "um", "uma", "e", "de", "da", "do", "das", "dos", "em", "na", "no",
+                  "para", "com", "por", "sem", "sob", "sobre", "ao", "aos", "the", "of", "and", "in", "on",
+                  "for", "with", "to", "a", "an", "from", "by"}
 
 def format_sentence_case(title: str, is_subtitle: bool = False) -> str:
     """
@@ -57,7 +64,13 @@ def format_sentence_case(title: str, is_subtitle: bool = False) -> str:
         
     words = title_clean.split(" ")
     formatted_words = []
-    
+    # Título digitado em sentence case (poucas palavras capitalizadas) costuma trazer nomes
+    # próprios e siglas no meio do texto ("Análise de dados com R", "Entrevista a João Souza").
+    # Caixa de título (ex.: Crossref) segue a regra geral de minúsculas.
+    content = [re.sub(r'[^\w-]', '', w) for w in words[1:]]
+    content = [w for w in content if w and w.lower() not in FUNCTION_WORDS]
+    sentence_input = bool(content) and sum(w[0].isupper() for w in content) / len(content) < 0.8
+
     for idx, word in enumerate(words):
         clean_word = re.sub(r'[^\w-]', '', word)
         c_lower = clean_word.lower()
@@ -71,10 +84,12 @@ def format_sentence_case(title: str, is_subtitle: bool = False) -> str:
             formatted_words.append(word.upper())
         elif c_lower in PROPER_NOUNS:
             formatted_words.append(word.capitalize())
-        elif (clean_word.isupper() and len(clean_word) >= 2) or any(c.isupper() for c in clean_word[1:]):
+        elif (clean_word.isupper() and (len(clean_word) >= 2 or idx > 0)) or any(c.isupper() for c in clean_word[1:]):
             formatted_words.append(word)
         elif idx == 0 and not is_subtitle:
             formatted_words.append(word.capitalize())
+        elif sentence_input and idx > 0 and clean_word[:1].isupper():
+            formatted_words.append(word)
         else:
             formatted_words.append(word.lower())
             
@@ -86,7 +101,9 @@ def _sentence_with_period(text: str) -> str:
     clean = (text or "").strip()
     if not clean:
         return ""
-    return clean if clean.endswith((".", "?", "!")) else f"{clean}."
+    # Markdown may leave punctuation immediately before closing emphasis markers.
+    semantic_end = re.sub(r'[\\*_`]+$', '', clean).rstrip()
+    return clean if semantic_end.endswith((".", "?", "!")) else f"{clean}."
 
 
 def _format_family_name(family: str) -> str:
@@ -213,6 +230,12 @@ def _format_authors_apa(authors: list) -> str:
         res = ""
         
     return res.strip()
+
+def _format_book_pages(pages: str) -> str:
+    """Número de páginas de monografia: '320 p.' (ABNT), sem o prefixo 'p.' de páginas de artigo."""
+    m = re.match(r'^(\d+)\s*(?:p|pág|páginas)?\.?$', (pages or "").strip(), re.IGNORECASE)
+    return f"{m.group(1)} p" if m else ""
+
 
 def _format_page_abnt(page: str) -> str:
     """Formata número de página ou artigo no padrão ABNT."""
@@ -427,7 +450,7 @@ def format_abnt(meta: dict) -> str:
             ev_info += f", {ev_yr}"
         if ev_city:
             ev_info += f", {ev_city}"
-        ev_info += f". **{proc_title}**"
+        ev_info += f". **{proc_title}**."
         parts.append(ev_info)
         
         pub_str = publisher if publisher else "[s. n.]"
@@ -438,7 +461,7 @@ def format_abnt(meta: dict) -> str:
     elif item_type == "thesis":
         if authors_str:
             parts.append(f"{authors_str}.")
-        parts.append(f"{_format_bold_title(raw_title)}.")
+        parts.append(_sentence_with_period(_format_bold_title(raw_title)))
         
         deg_yr = meta.get("degree_year") or year
         deg_tp = meta.get("degree_type", "Tese (Doutorado)")
@@ -456,7 +479,7 @@ def format_abnt(meta: dict) -> str:
     elif item_type == "patent":
         if authors_str:
             parts.append(f"{authors_str}.")
-        parts.append(f"{_format_bold_title(raw_title)}.")
+        parts.append(_sentence_with_period(_format_bold_title(raw_title)))
         patent_no = meta.get("patent_no", "")
         dep_info = meta.get("deposit_info", "")
         conc_info = meta.get("concession_info", "")
@@ -487,7 +510,7 @@ def format_abnt(meta: dict) -> str:
     elif item_type == "website":
         if authors_str:
             parts.append(f"{authors_str}.")
-        parts.append(f"{_format_bold_title(raw_title)}.")
+        parts.append(_sentence_with_period(_format_bold_title(raw_title)))
         site = meta.get("site_name", "")
         dt_str = meta.get("date_str", "") or display_date_abnt
         site_city = city
@@ -499,7 +522,7 @@ def format_abnt(meta: dict) -> str:
     elif item_type == "book":
         if authors_str:
             parts.append(f"{authors_str}.")
-        parts.append(f"{_format_bold_title(raw_title)}.")
+        parts.append(_sentence_with_period(_format_bold_title(raw_title)))
         if edition:
             parts.append(f"{edition}")
         pub_str = publisher if publisher else "[s. n.]"
@@ -507,12 +530,15 @@ def format_abnt(meta: dict) -> str:
             parts.append(f"{city}: {pub_str}, {date_abnt}.")
         else:
             parts.append(f"{city}: {pub_str}, [s. d.].")
+        book_pages = _format_book_pages(meta.get("page", ""))
+        if book_pages:
+            parts.append(f"{book_pages}.")
         
     # 9. DOCUMENTO INSTITUCIONAL / ACTO LEGAL
     elif item_type == "legal":
         if authors_str:
             parts.append(f"{authors_str}.")
-        parts.append(f"{_format_bold_title(raw_title)}.")
+        parts.append(_sentence_with_period(_format_bold_title(raw_title)))
         if publisher:
             parts.append(f"{city}: {publisher}, {display_date_abnt}.")
         else:
@@ -856,8 +882,10 @@ def get_missing_attributes(meta: dict) -> list:
             missing.append("Nome da instituição de ensino/pesquisa (Universidade/Faculdade)")
         if not degree_type:
             missing.append("Grau acadêmico (Tese/Dissertação/TCC)")
-        elif " em " not in degree_type.lower() and " de " not in degree_type.lower():
-            # ABNT NBR 6023 Item 7.8 exige grau e área de concentração/programa
+        elif (" em " not in degree_type.lower() and " de " not in degree_type.lower()
+              and not meta.get("program")):
+            # Se o repositório traz o programa separadamente, ele já fornece
+            # contexto acadêmico suficiente para revisão/normalização do grau.
             missing.append("Área de concentração / Programa do trabalho acadêmico (ex: Doutorado em Filosofia da Educação)")
 
     elif item_type == "website":
@@ -874,7 +902,8 @@ def get_missing_attributes(meta: dict) -> list:
         section = meta.get("section", "")
         if not newspaper:
             missing.append("Nome do jornal")
-        if not page and not section:
+        # Em matéria consultada online, URL + data identificam a publicação mesmo sem paginação física.
+        if not page and not section and not url:
             missing.append("Página ou Seção do jornal")
 
     elif item_type in {"legislation", "bill"}:

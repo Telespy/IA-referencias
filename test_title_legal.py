@@ -272,7 +272,10 @@ class LegalTests(unittest.TestCase):
     def test_user_publisher_cannot_become_verified(self):
         query = parse_legal_request('Lei federal 11892/2008')
         query.update(publisher='Inventada', city='Inventada', section='99')
-        with patch('legal_references._json', return_value=LAW):
+        # Isola a rota estruturada: não deixe uma consulta real ao Planalto
+        # tornar este teste dependente de conectividade.
+        with patch('legal_references._planalto_law', return_value={}), \
+                patch('legal_references._json', return_value=LAW):
             meta = fetch_legal_reference(query)['match']
         self.assertNotIn('publisher', meta)
         self.assertNotIn('section', meta)
@@ -293,7 +296,10 @@ class LegalTests(unittest.TestCase):
         self.assertFalse(result['approved'])
 
     def test_law_api_outage_is_not_nonexistence(self):
-        with patch('legal_references._json', side_effect=LookupFailure('Unavailable')):
+        # Simula indisponibilidade real das fontes consultadas; antes este teste
+        # podia passar/falhar conforme o Planalto estivesse acessível na internet.
+        with patch('legal_references._planalto_law', side_effect=LookupFailure('Unavailable')), \
+                patch('legal_references._json', side_effect=LookupFailure('Unavailable')):
             result = process_reference_line('Lei federal 11892/2008')
         self.assertFalse(result['approved'])
         self.assertIn('SOURCE_UNAVAILABLE', [i['code'] for i in result['issues']])

@@ -1,240 +1,143 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brain Format — Padronizador Inteligente de Referências (ABNT & APA)</title>
-  <meta name="description" content="Referências ABNT e APA com fontes, correções e pendências de revisão.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <title>Referência Certa — Corretor ABNT</title>
+  <meta name="description" content="Corrija e verifique referências ABNT com fontes, proveniência e revisão assistida.">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Header / Navbar -->
-  <header class="navbar">
-    <div class="nav-container">
-      <div class="nav-brand">
-        <div class="logo-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
-            <path d="M6 6h10"></path>
-            <path d="M6 10h10"></path>
-            <path d="M6 14h6"></path>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <h1>Brain Format</h1>
-          <span class="brand-tag">ABNT & APA Intelligence</span>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">R</div>
+        <div>
+          <strong>Referência Certa</strong>
+          <span>Corretor ABNT com verificação de fontes</span>
         </div>
       </div>
-
-      <div class="nav-actions">
-        <div class="status-indicator" id="apiStatus" title="Status da API">
-          <span class="status-dot"></span>
-          <span class="status-text">Online</span>
-        </div>
-        <button id="themeToggle" class="btn-icon" aria-label="Alternar Tema" title="Alternar Modo Escuro/Claro">
-          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2"></path>
-            <path d="M12 20v2"></path>
-            <path d="m4.93 4.93 1.41 1.41"></path>
-            <path d="m17.66 17.66 1.41 1.41"></path>
-            <path d="M2 12h2"></path>
-            <path d="M20 12h2"></path>
-            <path d="m6.34 17.66-1.41 1.41"></path>
-            <path d="m19.07 4.93-1.41 1.41"></path>
-          </svg>
-          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-          </svg>
-        </button>
+      <div class="top-actions">
+        <div id="apiStatus" class="api-status checking"><span class="dot"></span><span class="status-text">Verificando servidor…</span></div>
+        <button id="themeToggle" class="icon-button" type="button" aria-label="Alternar tema">◐</button>
       </div>
     </div>
   </header>
 
-  <!-- Conteúdo Principal -->
-  <main class="main-content">
-    <section class="hero-section">
-      <div class="hero-badge">ABNT NBR 6023 + APA 7ª Ed.</div>
-      <h2 class="hero-title">Correção de referências</h2>
+  <main class="page">
+    <section class="intro">
+      <div>
+        <span class="eyebrow">ABNT NBR 6023:2018</span>
+        <h1>Cole suas referências.<br><span>O sistema corrige e mostra o que foi confirmado.</span></h1>
+        <p>O corretor normaliza entradas sujas, identifica o tipo documental, busca metadados confiáveis e só marca como verificada quando há evidência suficiente.</p>
+      </div>
+      <div class="trust-card">
+        <div class="trust-row"><span class="trust-icon success">✓</span><div><strong>Sem inventar dados</strong><small>Campos não confirmados ficam em revisão.</small></div></div>
+        <div class="trust-row"><span class="trust-icon">↗</span><div><strong>Fontes rastreáveis</strong><small>Veja de onde veio cada correção.</small></div></div>
+        <div class="trust-row"><span class="trust-icon">≋</span><div><strong>Entrada preservada</strong><small>Você sempre pode comparar antes e depois.</small></div></div>
+      </div>
     </section>
 
-    <!-- Caixa de Entrada -->
-    <section class="input-card">
-      <div class="input-header">
-        <label for="referenceInput" class="input-label">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-            <polyline points="10 9 9 9 8 9"></polyline>
-          </svg>
-          <span>Cole suas referências (uma por linha):</span>
+    <section class="workspace">
+      <div class="workspace-head">
+        <div>
+          <h2>1. Insira as referências</h2>
+          <p>Escolha como seu texto está organizado para evitar quebras incorretas.</p>
+        </div>
+        <span id="lineCount" class="counter">0 referências</span>
+      </div>
+
+      <div class="mode-switch" role="radiogroup" aria-label="Formato da entrada">
+        <label class="mode-option active">
+          <input type="radio" name="inputMode" value="lines" checked>
+          <span><strong>Uma por linha</strong><small>Use quando cada referência ocupa uma única linha.</small></span>
         </label>
-        <span class="input-counter" id="lineCount">0 referências</span>
+        <label class="mode-option">
+          <input type="radio" name="inputMode" value="blocks">
+          <span><strong>Blocos separados</strong><small>Use para referências com quebras internas; deixe uma linha em branco entre elas.</small></span>
+        </label>
       </div>
 
-      <div class="textarea-wrapper">
-        <textarea
-          id="referenceInput"
-          placeholder="Exemplo de referências para colar:
-WOODWARD, Kathryn. Identidade e diferença: uma introdução teórica e conceitual. In: SILVA, Tomaz Tadeu da (org.). Identidade e diferença: a perspectiva dos estudos culturais. Petrópolis: Vozes, 2000. p. 7-72.
-https://doi.org/10.1590/s1981-77462003000100010
-CARNEIRO, Aparecida Sueli. A construção do outro como não-ser como fundamento do ser. 2005. Tese (Doutorado) – Universidade de São Paulo, São Paulo, 2005."
-          rows="7"
-          spellcheck="false"
-        ></textarea>
+      <textarea id="referenceInput" spellcheck="false" placeholder="Cole aqui uma ou várias referências…"></textarea>
+
+      <div class="import-row">
+        <label class="button secondary">Importar TCC (.docx, .pdf, .txt, .md)<input id="docFile" type="file" accept=".docx,.pdf,.txt,.md" hidden></label>
+        <span id="docInfo" class="muted"></span>
+      </div>
+      <div id="batchPicker" class="import-row hidden">
+        <label for="batchSelect" class="muted">Lote de até 50 referências</label>
+        <select id="batchSelect"></select>
       </div>
 
-      <div class="input-footer">
-        <div class="footer-left">
-          <button id="btnExample" class="btn btn-secondary" title="Inserir referências de demonstração">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m18 16 4-4-4-4"></path>
-              <path d="m6 8-4 4 4 4"></path>
-              <path d="m14.5 4-5 16"></path>
-            </svg>
-            Carregar Exemplos
-          </button>
-          <button id="btnClear" class="btn btn-ghost" title="Limpar campo">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18"></path>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            </svg>
-            Limpar
-          </button>
+      <div class="workspace-actions">
+        <div class="left-actions">
+          <button id="btnExample" class="button secondary" type="button">Carregar exemplos</button>
+          <button id="btnClear" class="button ghost" type="button">Limpar</button>
         </div>
-        <div class="footer-right">
-          <button id="btnFormat" class="btn btn-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            <span>Formatar Referências Agora</span>
-            <kbd class="shortcut-tag">Ctrl + Enter</kbd>
-          </button>
-        </div>
+        <button id="btnFormat" class="button primary" type="button">
+          <span>Corrigir referências</span>
+          <kbd>Ctrl + Enter</kbd>
+        </button>
+      </div>
+
+      <div class="tips">
+        <span>💡 Aceita DOI, ISBN, URL, referências incompletas e texto copiado de PDF/Word.</span>
+        <label class="toggle-line"><input id="onlineToggle" type="checkbox" checked> consultar fontes online</label>
       </div>
     </section>
 
-    <!-- Feedback de Carregamento -->
-    <div id="loadingState" class="loading-state hidden">
+    <div id="loadingState" class="loading-panel hidden">
       <div class="spinner"></div>
-      <div class="loading-content">
-        <div class="loading-title">Analisando e formatando...</div>
-        <div class="loading-desc">Identificando tipos bibliográficos, aplicando normas ABNT e APA.</div>
-      </div>
+      <div><strong>Conferindo referências…</strong><span>Normalizando, identificando e consultando as fontes disponíveis.</span></div>
     </div>
 
-    <!-- Alerta de Erro -->
-    <div id="errorBanner" class="error-banner hidden">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <span id="errorMessage">Ocorreu um erro ao processar as referências.</span>
-    </div>
+    <div id="errorBanner" class="message error hidden"><strong>Não foi possível processar.</strong><span id="errorMessage"></span></div>
 
-    <!-- Área de Resultados -->
-    <section id="resultsSection" class="results-section hidden">
-      <!-- Barra de Ações do Resultado -->
-      <div class="results-toolbar">
-        <div class="toolbar-title">
-          <span class="results-count" id="resultsCount">3 referências processadas</span>
+    <section id="resultsSection" class="results hidden">
+      <div class="results-titlebar">
+        <div>
+          <span class="eyebrow">Resultado</span>
+          <h2 id="resultsCount">0 referências processadas</h2>
         </div>
-        <div class="toolbar-downloads">
-          <button id="btnDownloadComp" class="btn btn-sm btn-outline">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Baixar Comparativo (.md)
-          </button>
-          <button id="btnDownloadABNT" class="btn btn-sm btn-outline">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Baixar ABNT (.md)
-          </button>
-          <button id="btnDownloadAPA" class="btn btn-sm btn-outline">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            Baixar APA (.md)
-          </button>
+        <div class="summary-grid">
+          <div class="summary-card verified"><span id="sumVerified">0</span><small>Verificadas</small></div>
+          <div class="summary-card review"><span id="sumReview">0</span><small>Em revisão</small></div>
+          <div class="summary-card error"><span id="sumError">0</span><small>Erros</small></div>
         </div>
       </div>
 
-      <!-- Abas de Navegação -->
-      <div class="tabs-header">
-        <button class="tab-btn active" data-tab="tab-comp">
-          <span class="tab-icon">🔍</span>
-          <span>Comparativo Lado a Lado</span>
-          <span class="tab-badge" id="badgeComp">0</span>
-        </button>
-        <button class="tab-btn" data-tab="tab-abnt">
-          <span class="tab-icon">📗</span>
-          <span>ABNT (NBR 6023)</span>
-          <span class="tab-badge" id="badgeABNT">0</span>
-        </button>
-        <button class="tab-btn" data-tab="tab-apa">
-          <span class="tab-icon">📘</span>
-          <span>APA (7ª Edição)</span>
-          <span class="tab-badge" id="badgeAPA">0</span>
-        </button>
+      <div class="results-controls">
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" data-tab="tab-comp" type="button">Revisão detalhada <span id="badgeComp">0</span></button>
+          <button class="tab-btn" data-tab="tab-abnt" type="button">ABNT <span id="badgeABNT">0</span></button>
+          <button class="tab-btn" data-tab="tab-apa" type="button">APA <span id="badgeAPA">0</span></button>
+        </div>
+        <div class="downloads">
+          <button id="btnDownloadComp" class="button mini secondary" type="button">Baixar relatório</button>
+          <button id="btnDownloadABNT" class="button mini secondary" type="button">Baixar ABNT</button>
+          <button id="btnDownloadAPA" class="button mini secondary" type="button">Baixar APA</button>
+        </div>
       </div>
 
-      <!-- Conteúdo da Aba 1: Comparativo Lado a Lado -->
-      <div id="tab-comp" class="tab-pane active">
-        <div id="compList" class="cards-list"></div>
-      </div>
-
-      <!-- Conteúdo da Aba 2: ABNT -->
+      <div id="tab-comp" class="tab-pane active"><div id="compList" class="result-list"></div></div>
       <div id="tab-abnt" class="tab-pane">
-        <div class="list-action-bar">
-          <button id="btnCopyAllABNT" class="btn btn-sm btn-primary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            Copiar Lista ABNT Completa
-          </button>
-        </div>
-        <div id="abntList" class="cards-list"></div>
+        <div class="list-toolbar"><button id="btnCopyAllABNT" class="button mini primary" type="button">Copiar todas em ABNT</button></div>
+        <div id="abntList" class="result-list"></div>
       </div>
-
-      <!-- Conteúdo da Aba 3: APA -->
       <div id="tab-apa" class="tab-pane">
-        <div class="list-action-bar">
-          <button id="btnCopyAllAPA" class="btn btn-sm btn-primary">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            Copiar Lista APA Completa
-          </button>
-        </div>
-        <div id="apaList" class="cards-list"></div>
+        <div class="list-toolbar"><button id="btnCopyAllAPA" class="button mini primary" type="button">Copiar todas em APA</button></div>
+        <div id="apaList" class="result-list"></div>
       </div>
     </section>
   </main>
 
-  <!-- Toasts de Notificação -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <footer class="footer">
-    <p>Brain Format © 2026 · ABNT e APA · Referências e pendências de revisão</p>
+    <span>Referência Certa</span>
+    <span>Quando a evidência é insuficiente, o sistema pede revisão em vez de inventar informação.</span>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

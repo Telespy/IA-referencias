@@ -12,6 +12,8 @@ from publication_places import normalize_place
 from reference_validation import normalized, select_candidate, verify_work_identity
 from sources import LookupFailure, valid_isbn
 from title_lookup import title_query, select_title, public_candidate
+from normalizer import normalize_reference_input
+from resolver_pipeline import resolve_reference, fetch_public_page_metadata, enrich_from_official_page
 
 
 FIELD_LABELS = {
@@ -37,9 +39,10 @@ FIELD_LABELS = {
 }
 SUPPORTED_TYPES = {'book', 'chapter', 'journalArticle', 'proceedings', 'thesis',
                    'legislation', 'bill', 'legal', 'website', 'newspaperArticle', 'patent', 'caseLaw'}
-MANUAL_PATTERN = re.compile(
-    r'\b(?:jurisprud[eê]ncia|ac[oó]rd[aã]o|s[uú]mula|habeas corpus|'
-    r'podcast|partitura|documento cartogr[aá]fico|mapa topogr[aá]fico|'
+LEGAL_MANUAL_PATTERN = re.compile(
+    r'\b(?:jurisprud[eê]ncia|ac[oó]rd[aã]o|s[uú]mula|habeas corpus)\b', re.I)
+UNSUPPORTED_DOCUMENT_PATTERN = re.compile(
+    r'\b(?:podcast|partitura|documento cartogr[aá]fico|mapa topogr[aá]fico|'
     r'filme|fotografia|software|dataset|preprint)\b', re.I)
 
 
@@ -54,13 +57,15 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
         return None
     raw_for_parser = re.sub(r'^\s*(?:\[\d+\]|\d+[.)]|[-*])\s+', '', raw)
     raw_for_parser = re.sub(r'^\s*(?:corrija|corrigir)\s+(?:essa\s+)?refer[eê]ncia\s*(?:para\s+ABNT)?\s*:\s*', '', raw_for_parser, flags=re.I)
+    raw_for_parser, normalization_steps = normalize_reference_input(raw_for_parser)
     parsed = parse_raw_citation_text(raw_for_parser)
     detected = identify_input_type(raw_for_parser)
-    title_input = title_query(raw_for_parser, parsed, detected)
+    fetched = resolve_reference(raw_for_parser, parsed, online=online)
+    title_input = '' if fetched else title_query(raw_for_parser, parsed, detected)
     if title_input:
         parsed = {'title': title_input, 'item_type': 'unknown'}
     issues, corrections, sources = [], [], []
-    fetched, evidence = {}, {}
+    evidence = {}
     suggestions = []
 
     def issue(code, message, severity='warning', field=None):
@@ -80,7 +85,7 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
         if source and not any(s.get('name') == source.get('name') and s.get('url') == source.get('url') for s in sources):
             sources.append(source)
 
-    declared_url = re.search(r'\bDispon[ií]vel em:\s*(.*?)(?=\s*Acesso em:|$)', raw, re.I | re.S)
+    declared_url = re.search(r'\bDispon[ií]vel em:\s*(.*?)(?=\s*Acesso em:|$)', raw_for_parser, re.I | re.S)
     invalid_url = False
     if declared_url:
         candidate_url = re.search(r'https?://[^\s)<>]+', declared_url[1], re.I)
@@ -93,10 +98,19 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
 
     doi = parsed.get('doi', '')
     isbn = parsed.get('isbn', '')
-    unsupported = parsed.get('item_type') != 'caseLaw' and bool(MANUAL_PATTERN.search(raw_for_parser))
+    # Tipos documentais realmente não suportados continuam bloqueados mesmo
+    # que o parser genérico os confunda com livro/site. Já termos jurídicos como
+    # "jurisprudência" só acionam revisão manual quando o tipo permanece desconhecido.
+    unsupported = (
+        bool(UNSUPPORTED_DOCUMENT_PATTERN.search(raw_for_parser))
+        or (
+            parsed.get('item_type') not in SUPPORTED_TYPES
+            and bool(LEGAL_MANUAL_PATTERN.search(raw_for_parser))
+        )
+    )
     if unsupported:
         issue('UNSUPPORTED_TYPE', 'Tipo de documento requer revisao manual; a entrada original foi preservada.')
-    elif online:
+    elif online and not fetched:
         if parsed.get('item_type') == 'caseLaw' and fetch_case:
             fetched = lookup(fetch_case, parsed, 'Supremo Tribunal Federal')
             if not fetched:
@@ -159,10 +173,18 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
             fetched, ambiguous = select_candidate(parsed, candidates)
             if ambiguous:
                 issue('AMBIGUOUS_MATCH', 'Mais de uma obra corresponde aos dados. Informe o DOI ou consulte a publicacao.')
-    else:
+    elif not online:
         issue('OFFLINE', 'Consulta online desativada. Os dados bibliograficos nao foram verificados.')
 
-    if fetched and fetched.get('item_type') not in {'legislation', 'bill', 'caseLaw'} and online and enrich:
+    # Etapa universal: qualquer obra já identificada que possua uma URL pública
+    # pode ganhar metadados adicionais da própria página oficial, desde que a
+    # identidade seja confirmada. Isso não é exclusivo de artigos.
+    if fetched and online and fetched.get('item_type') not in {'legislation', 'bill', 'caseLaw'} and fetched.get('url'):
+        official = enrich_from_official_page(fetched, parsed)
+        if official:
+            fetched = official
+
+    if fetched and fetched.get('item_type') not in {'legislation', 'bill', 'caseLaw'} and online and enrich and not fetched.get('_authority_record'):
         enriched = lookup(enrich, fetched, 'Complementacao bibliografica')
         if enriched:
             fetched = enriched
@@ -191,17 +213,21 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
             field_source = fetched.get('_field_sources', {}).get(key) or source
             if key == 'authors' and fetched.get('_warnings') and meta.get('authors'):
                 continue
-            # Preserve access information supplied by the person who consulted the work.
-            if key in {'access_date', 'url'} and meta.get(key):
+            # A data de acesso pertence à consulta feita pelo usuário e não deve ser
+            # substituída por catálogos. A URL, por outro lado, pode ser trocada
+            # por uma URL canônica/institucional confirmada pela fonte.
+            if key == 'access_date' and meta.get(key):
                 if value == meta[key]:
-                    evidence[key] = {'source': field_source['name'], 'url': field_source['url'], 'verified': True}
+                    evidence[key] = {'source': field_source['name'], 'url': field_source['url'], 'verified': True,
+                                     'confidence': fetched.get('_field_confidence', {}).get(key, 1.0)}
                 continue
             previous = meta.get(key)
             if previous and previous != value and key != 'item_type':
                 corrections.append({'field': key, 'before': previous, 'after': value,
                                     'source': field_source['name'], 'source_url': field_source['url']})
             meta[key] = value
-            evidence[key] = {'source': field_source['name'], 'url': field_source['url'], 'verified': True}
+            evidence[key] = {'source': field_source['name'], 'url': field_source['url'], 'verified': True,
+                             'confidence': fetched.get('_field_confidence', {}).get(key, 1.0)}
             if key in fetched.get('_derived_fields', []):
                 evidence[key]['derived'] = True
         for warning in fetched.get('_warnings', []):
@@ -231,6 +257,25 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
             evidence[field]['verified'] = False
 
     item_type = meta.get('item_type', 'unknown')
+
+    # Remove resíduos de uma classificação preliminar quando uma fonte
+    # autoritativa redefine o tipo documental. Ex.: uma tese parcialmente
+    # descrita pode parecer livro antes da consulta ao repositório.
+    incompatible_by_type = {
+        'thesis': {'publisher', 'edition', 'journal', 'volume', 'issue',
+                   'book_title', 'book_authors', 'newspaper', 'site_name'},
+        'journalArticle': {'degree_type', 'degree_year', 'institution', 'program',
+                           'book_title', 'book_authors', 'newspaper'},
+        'newspaperArticle': {'degree_type', 'degree_year', 'institution', 'program',
+                             'book_title', 'book_authors', 'journal', 'volume'},
+        'book': {'degree_type', 'degree_year', 'institution', 'program',
+                 'journal', 'volume', 'issue', 'newspaper'},
+    }
+    if fetched:
+        for stale in incompatible_by_type.get(item_type, set()):
+            meta.pop(stale, None)
+            evidence.pop(stale, None)
+
     if unsupported or item_type not in SUPPORTED_TYPES:
         item_type = 'unknown'
         meta['item_type'] = item_type
@@ -281,16 +326,18 @@ def correct_reference(raw_line, *, online, fetch_doi, fetch_book, search, fetch_
     if missing:
         issue('MISSING_FIELDS', 'Elementos pendentes: ' + '; '.join(dict.fromkeys(missing)) + '.')
     blocking = [i for i in issues if i['severity'] != 'info' and not i.get('resolved')]
-    approved = bool(fetched and not blocking and item_type in SUPPORTED_TYPES)
+    work_verified = bool(fetched and fetched.get('_work_verified', True) and not fetched.get('_entity_profile'))
+    approved = bool(work_verified and not blocking and item_type in SUPPORTED_TYPES)
     abnt = format_abnt(meta) if item_type != 'unknown' and (item_type != 'caseLaw' or fetched) else raw
     apa = format_apa(meta) if item_type != 'unknown' and (item_type != 'caseLaw' or fetched) else raw
     return {
-        'raw': raw, 'meta': meta, 'item_type': item_type,
+        'raw': raw, 'normalized_input': raw_for_parser, 'normalization_steps': normalization_steps,
+        'meta': meta, 'item_type': item_type,
         'item_type_label': get_item_type_label(item_type),
         'abnt': abnt, 'apa': apa, 'missing_fields': list(dict.fromkeys(missing)),
         'citation': format_case_citation(meta) if item_type == 'caseLaw' and fetched else '',
         'status': 'verified' if approved else 'needs_review', 'approved': approved,
-        'identity_verified': bool(fetched), 'issues': issues,
+        'identity_verified': work_verified, 'issues': issues,
         'warnings': [i['message'] for i in issues if i['severity'] != 'info'],
         'corrections': corrections, 'provenance': evidence, 'sources': sources,
         'unverified_fields': unverified, 'candidates': suggestions,

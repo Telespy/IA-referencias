@@ -8,3 +8,4 @@ rich>=13.0.0
 python-dotenv>=1.0,<2
 defusedxml>=0.7.1,<1
 tzdata>=2024.1
+python-multipart>=0.0.9,<1

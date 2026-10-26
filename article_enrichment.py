@@ -177,10 +177,16 @@ def enrich_article(original):
         return original
     meta = copy.deepcopy(original)
     base_source = meta.get('_source', {})
-    meta['_sources'] = [base_source] if base_source else []
-    meta['_field_sources'] = {k: base_source for k, v in meta.items() if not k.startswith('_') and v}
-    meta['_issues'] = []
-    meta['_source_changes'] = []
+    # Preserve provenance already collected from Crossref + official page.
+    existing_sources = list(meta.get('_sources') or ([] if not base_source else [base_source]))
+    meta['_sources'] = existing_sources
+    existing_field_sources = dict(meta.get('_field_sources') or {})
+    for key, value in meta.items():
+        if not key.startswith('_') and value and key not in existing_field_sources and base_source:
+            existing_field_sources[key] = base_source
+    meta['_field_sources'] = existing_field_sources
+    meta['_issues'] = list(meta.get('_issues') or [])
+    meta['_source_changes'] = list(meta.get('_source_changes') or [])
 
     def issue(code, message, field=None, severity='warning'):
         meta['_issues'].append({'code': code, 'message': message, 'field': field, 'severity': severity})

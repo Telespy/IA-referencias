@@ -1,0 +1,105 @@
+[
+  {
+    "match": {
+      "url": "https://oglobo.globo.com/cultura/musica/noticia/2025/07/30/industria-da-musica-esta-ameacada-por-bandas-geradas-por-ia-desafio-incomparavel.ghtml",
+      "title": "Indústria da música está ameaçada por bandas geradas por IA: 'desafio incomparável'",
+      "entity": "O Globo"
+    },
+    "metadata": {
+      "item_type": "newspaperArticle",
+      "authors": [
+        {
+          "family": "AFP",
+          "given": ""
+        }
+      ],
+      "title": "Indústria da música está ameaçada por bandas geradas por IA: 'desafio incomparável'",
+      "newspaper": "O Globo",
+      "city": "Rio de Janeiro",
+      "date_str": "30 jul. 2025",
+      "year": "2025",
+      "url": "https://oglobo.globo.com/cultura/musica/noticia/2025/07/30/industria-da-musica-esta-ameacada-por-bandas-geradas-por-ia-desafio-incomparavel.ghtml"
+    },
+    "source_name": "O Globo - página da matéria",
+    "source_url": "https://oglobo.globo.com/cultura/musica/noticia/2025/07/30/industria-da-musica-esta-ameacada-por-bandas-geradas-por-ia-desafio-incomparavel.ghtml",
+    "confidence": 1.0
+  },
+  {
+    "match": {
+      "url": "https://repositorio.fgv.br/items/398149b8-383a-4abe-8ca0-bc54796265c5",
+      "title": "Clareza e legitimidade",
+      "entity": "Fundação Getulio Vargas"
+    },
+    "metadata": {
+      "item_type": "thesis",
+      "authors": [
+        {
+          "family": "OLIVEIRA",
+          "given": "João Carlos Cochlar de"
+        }
+      ],
+      "title": "Clareza e legitimidade: como elementos de teoria musical podem iluminar a interpretação jurídica?",
+      "degree_year": "2020",
+      "degree_type": "Monografia (Bacharelado em Direito)",
+      "institution": "Fundação Getulio Vargas",
+      "city": "Rio de Janeiro",
+      "year": "2020",
+      "url": "https://repositorio.fgv.br/items/398149b8-383a-4abe-8ca0-bc54796265c5"
+    },
+    "source_name": "FGV Direito Rio - Coleção Jovem Jurista 2020",
+    "source_url": "https://direitorio.fgv.br/publicacao/colecao-jovem-jurista-2020",
+    "confidence": 1.0
+  },
+  {
+    "match": {
+      "title": "O que é propriedade intelectual?",
+      "entity": "WIPO"
+    },
+    "metadata": {
+      "item_type": "book",
+      "authors": [
+        {
+          "family": "WIPO",
+          "given": "",
+          "is_corporate": true
+        }
+      ],
+      "title": "O que é propriedade intelectual?",
+      "city": "Genebra",
+      "publisher": "WIPO",
+      "year": "2021",
+      "isbn": "9789280532265",
+      "doi": "10.34667/tind.44584",
+      "url": "https://tind.wipo.int/record/44584"
+    },
+    "source_name": "WIPO Publications / TIND",
+    "source_url": "https://tind.wipo.int/record/44584",
+    "confidence": 1.0
+  },
+  {
+    "match": {
+      "title": "Liberdade(s) e função: contribuição crítica para uma nova fundamentação da dimensão funcional do Direito Civil brasileiro",
+      "entity": "",
+      "url": "https://acervodigital.ufpr.br/handle/1884/19174"
+    },
+    "metadata": {
+      "item_type": "thesis",
+      "authors": [
+        {
+          "family": "RUZYK",
+          "given": "Carlos Eduardo Pianovski"
+        }
+      ],
+      "title": "Liberdade(s) e função: contribuição crítica para uma nova fundamentação da dimensão funcional do Direito Civil brasileiro",
+      "degree_type": "Tese (Doutorado em Direito das Relações Sociais)",
+      "institution": "Universidade Federal do Paraná",
+      "city": "Curitiba",
+      "year": "2009",
+      "degree_year": "2009",
+      "url": "https://acervodigital.ufpr.br/handle/1884/19174"
+    },
+    "source_name": "Acervo Digital da Universidade Federal do Paraná",
+    "source_url": "https://acervodigital.ufpr.br/handle/1884/19174",
+    "confidence": 1.0
+  }
+]
